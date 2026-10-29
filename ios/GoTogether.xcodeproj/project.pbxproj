@@ -1,0 +1,435 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		03884EBAA6B531B9095D6C9F /* MatchingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 102AEF74DB095468D9803295 /* MatchingTests.swift */; };
+		20F5CC563F4FA59DF279F1BF /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E226894B7D409D84D01592C /* HomeView.swift */; };
+		3FC993D3D71E06CEEC969CDD /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F186027C6EBCFFD41AD021F /* AppState.swift */; };
+		40A9F9858A0DBDB9680A1F9D /* ApiClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC5D7823074468A25E6CDE4 /* ApiClient.swift */; };
+		5D991178D78A773E3E20FE53 /* TripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA48AB96F7707B61819867A7 /* TripView.swift */; };
+		6D16B7826539A25A7CC3481B /* MatchingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1A08D5100EC6B721DEA749 /* MatchingEngine.swift */; };
+		985AF1960D72E4E78423DEB6 /* MapHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5750E67074822FBAA958DB7 /* MapHomeView.swift */; };
+		AB65FDDC038D00DC4664F2DA /* Mock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B5208B6353C9B955F409E4 /* Mock.swift */; };
+		B41C068029858C53B5C8999D /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E459C058D60E5BC1C7F9E5 /* Models.swift */; };
+		E46F6E6F5638C9FACA40418A /* SafetyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA05C19D246C64ED6699BB6F /* SafetyView.swift */; };
+		E5C3EEAE169C35F5B11DE216 /* GoTogetherApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0FDBA4F6807027A5CACE31 /* GoTogetherApp.swift */; };
+		FC4CF2C783DB079D2969C36D /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C9D0A08FDB1A919B96E54E4 /* OnboardingView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D41F2A8D3476215BA20A6FE0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9CE5303D8A8447D759FE1C35 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 46572D39F9AE16648CBC2A9E;
+			remoteInfo = GoTogether;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		102AEF74DB095468D9803295 /* MatchingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchingTests.swift; sourceTree = "<group>"; };
+		1B0FDBA4F6807027A5CACE31 /* GoTogetherApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoTogetherApp.swift; sourceTree = "<group>"; };
+		1F186027C6EBCFFD41AD021F /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		2D1A08D5100EC6B721DEA749 /* MatchingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchingEngine.swift; sourceTree = "<group>"; };
+		497D14A83F9661DCE54CAAB5 /* GoTogetherTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = GoTogetherTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		4A4D558ED947605182EF3D0D /* GoTogether.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GoTogether.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4E226894B7D409D84D01592C /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		7C9D0A08FDB1A919B96E54E4 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		81E459C058D60E5BC1C7F9E5 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		94B5208B6353C9B955F409E4 /* Mock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mock.swift; sourceTree = "<group>"; };
+		9BC5D7823074468A25E6CDE4 /* ApiClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiClient.swift; sourceTree = "<group>"; };
+		C5750E67074822FBAA958DB7 /* MapHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapHomeView.swift; sourceTree = "<group>"; };
+		CA05C19D246C64ED6699BB6F /* SafetyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyView.swift; sourceTree = "<group>"; };
+		FA48AB96F7707B61819867A7 /* TripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		1C1F49DEAF083A8AB984DB34 /* GoTogetherTests */ = {
+			isa = PBXGroup;
+			children = (
+				102AEF74DB095468D9803295 /* MatchingTests.swift */,
+			);
+			path = GoTogetherTests;
+			sourceTree = "<group>";
+		};
+		4CAF0C55179EE8DD0DBB3BAF /* GoTogether */ = {
+			isa = PBXGroup;
+			children = (
+				9BC5D7823074468A25E6CDE4 /* ApiClient.swift */,
+				1F186027C6EBCFFD41AD021F /* AppState.swift */,
+				1B0FDBA4F6807027A5CACE31 /* GoTogetherApp.swift */,
+				4E226894B7D409D84D01592C /* HomeView.swift */,
+				C5750E67074822FBAA958DB7 /* MapHomeView.swift */,
+				2D1A08D5100EC6B721DEA749 /* MatchingEngine.swift */,
+				94B5208B6353C9B955F409E4 /* Mock.swift */,
+				81E459C058D60E5BC1C7F9E5 /* Models.swift */,
+				7C9D0A08FDB1A919B96E54E4 /* OnboardingView.swift */,
+				CA05C19D246C64ED6699BB6F /* SafetyView.swift */,
+				FA48AB96F7707B61819867A7 /* TripView.swift */,
+			);
+			path = GoTogether;
+			sourceTree = "<group>";
+		};
+		4EFF17D0051DC2C728C4DC4E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4A4D558ED947605182EF3D0D /* GoTogether.app */,
+				497D14A83F9661DCE54CAAB5 /* GoTogetherTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		80524C33371BC204EA618FF4 = {
+			isa = PBXGroup;
+			children = (
+				4CAF0C55179EE8DD0DBB3BAF /* GoTogether */,
+				1C1F49DEAF083A8AB984DB34 /* GoTogetherTests */,
+				4EFF17D0051DC2C728C4DC4E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		00D9D1FF0E3EB1448AD1ABBF /* GoTogetherTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 66E94925EBA3410C5EA8A3AD /* Build configuration list for PBXNativeTarget "GoTogetherTests" */;
+			buildPhases = (
+				CFF3ED8D911647E57484CD1E /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				90D969EC490900AF3EB2B2A1 /* PBXTargetDependency */,
+			);
+			name = GoTogetherTests;
+			packageProductDependencies = (
+			);
+			productName = GoTogetherTests;
+			productReference = 497D14A83F9661DCE54CAAB5 /* GoTogetherTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		46572D39F9AE16648CBC2A9E /* GoTogether */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D33D7D268D0F6D269CA3E6D8 /* Build configuration list for PBXNativeTarget "GoTogether" */;
+			buildPhases = (
+				F38A848F99690C5030E66050 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GoTogether;
+			packageProductDependencies = (
+			);
+			productName = GoTogether;
+			productReference = 4A4D558ED947605182EF3D0D /* GoTogether.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9CE5303D8A8447D759FE1C35 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+			};
+			buildConfigurationList = 30904F6BBF141AB348B12B23 /* Build configuration list for PBXProject "GoTogether" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 80524C33371BC204EA618FF4;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 4EFF17D0051DC2C728C4DC4E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				46572D39F9AE16648CBC2A9E /* GoTogether */,
+				00D9D1FF0E3EB1448AD1ABBF /* GoTogetherTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CFF3ED8D911647E57484CD1E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				03884EBAA6B531B9095D6C9F /* MatchingTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F38A848F99690C5030E66050 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				40A9F9858A0DBDB9680A1F9D /* ApiClient.swift in Sources */,
+				3FC993D3D71E06CEEC969CDD /* AppState.swift in Sources */,
+				E5C3EEAE169C35F5B11DE216 /* GoTogetherApp.swift in Sources */,
+				20F5CC563F4FA59DF279F1BF /* HomeView.swift in Sources */,
+				985AF1960D72E4E78423DEB6 /* MapHomeView.swift in Sources */,
+				6D16B7826539A25A7CC3481B /* MatchingEngine.swift in Sources */,
+				AB65FDDC038D00DC4664F2DA /* Mock.swift in Sources */,
+				B41C068029858C53B5C8999D /* Models.swift in Sources */,
+				FC4CF2C783DB079D2969C36D /* OnboardingView.swift in Sources */,
+				E46F6E6F5638C9FACA40418A /* SafetyView.swift in Sources */,
+				5D991178D78A773E3E20FE53 /* TripView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		90D969EC490900AF3EB2B2A1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 46572D39F9AE16648CBC2A9E /* GoTogether */;
+			targetProxy = D41F2A8D3476215BA20A6FE0 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		70042DC90B46B499DFB73800 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gotogether.GoTogetherTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GoTogether.app/GoTogether";
+			};
+			name = Release;
+		};
+		94126F8C943FC8019937E1E1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = B5BUT6982X;
+				INFOPLIST_KEY_CFBundleDisplayName = GoTogether;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gotogether.aarka;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A5BCA017833233F147435C1A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = B5BUT6982X;
+				INFOPLIST_KEY_CFBundleDisplayName = GoTogether;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gotogether.aarka;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AED4E9EA008595311C606170 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 2;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "GoTogether shows your location on the map so riders near you can find you.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.2;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		CF1409C1E9C17891CEBBE680 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gotogether.GoTogetherTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GoTogether.app/GoTogether";
+			};
+			name = Debug;
+		};
+		E6385C2E1D675735C6856B64 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 2;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "GoTogether shows your location on the map so riders near you can find you.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.2;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		30904F6BBF141AB348B12B23 /* Build configuration list for PBXProject "GoTogether" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E6385C2E1D675735C6856B64 /* Debug */,
+				AED4E9EA008595311C606170 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		66E94925EBA3410C5EA8A3AD /* Build configuration list for PBXNativeTarget "GoTogetherTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CF1409C1E9C17891CEBBE680 /* Debug */,
+				70042DC90B46B499DFB73800 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D33D7D268D0F6D269CA3E6D8 /* Build configuration list for PBXNativeTarget "GoTogether" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A5BCA017833233F147435C1A /* Debug */,
+				94126F8C943FC8019937E1E1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9CE5303D8A8447D759FE1C35 /* Project object */;
+}
