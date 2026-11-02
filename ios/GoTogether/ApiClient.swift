@@ -72,8 +72,8 @@ final class ApiClient {
     /// URLSession with a short timeout — we're talking to a local server, not the internet.
     private var session: URLSession {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 3
-        config.timeoutIntervalForResource = 5
+        config.timeoutIntervalForRequest = 8
+        config.timeoutIntervalForResource = 12
         return URLSession(configuration: config)
     }
 
@@ -83,14 +83,14 @@ final class ApiClient {
         var r = URLRequest(url: URL(string: "\(baseURL)\(path)")!); r.httpMethod = "POST"
         r.setValue("application/json", forHTTPHeaderField: "Content-Type")
         r.httpBody = try JSONEncoder().encode(body)
-        r.timeoutInterval = 3
+        r.timeoutInterval = 8
         let (d, _) = try await session.data(for: r)
         return try JSONDecoder().decode(T.self, from: d)
     }
 
     private func get<T: Decodable>(_ path: String) async throws -> T {
         var r = URLRequest(url: URL(string: "\(baseURL)\(path)")!)
-        r.timeoutInterval = 3
+        r.timeoutInterval = 8
         let (d, _) = try await session.data(for: r)
         return try JSONDecoder().decode(T.self, from: d)
     }

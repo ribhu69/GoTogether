@@ -158,31 +158,16 @@ final class AppState {
         idVerified = u.idVerified
     }
 
-    /// Re-register with the server using the current profile (for reconnect).
-    /// Resyncs intent + location after successful registration.
+    /// Re-sync with the server — no new userId. Server auto-creates users
+    /// on intent upsert, so just re-send intent + location.
     func reconnectToServer() {
-        guard !name.isEmpty, !phone.isEmpty else { return }
+        guard isConnected, !name.isEmpty else { return }
         isReconnecting = true
+        syncIntent()
+        syncLocation()
         Task {
-            guard let u = try? await api.register(
-                name: name, phone: phone, gender: gender.rawValue.lowercased(),
-                idType: idType, idLast4: idLast4,
-                emergencyName: emergencyName, emergencyPhone: emergencyPhone)
-            else {
-                await MainActor.run {
-                    serverReachable = false
-                    isReconnecting = false
-                }
-                return
-            }
-            await MainActor.run {
-                phoneVerified = u.phoneVerified
-                idVerified = u.idVerified
-                serverReachable = true
-                isReconnecting = false
-            }
-            if hasDestination { syncIntent() }
-            syncLocation()
+            try? await Task.sleep(for: .seconds(1))
+            await MainActor.run { isReconnecting = false }
             fetchServerStatus()
         }
     }
@@ -414,7 +399,7 @@ final class AppState {
 
     /// Poll every visible peer for new messages. Called from the main map loop.
     func pollMessagesFromPeers() {
-        guard isConnected else { return }
+        guard isConnected, !peerLocations.isEmpty else { return }
         ChatMessage.myUserId = api.userId ?? ""
         for peer in peerLocations {
             let pid = peer.id
