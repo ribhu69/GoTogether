@@ -60,8 +60,19 @@ struct SafetyView: View {
     private var serverStatusSection: some View {
         Group {
             if !app.isConnected {
-                Label("Not connected — register in onboarding", systemImage: "wifi.slash")
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Not connected — register in onboarding", systemImage: "wifi.slash")
+                        .foregroundStyle(.secondary)
+                    Button {
+                        Task { await app.registerWithServer() }
+                        app.fetchServerStatus()
+                    } label: {
+                        Label("Connect to server", systemImage: "arrow.clockwise")
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(app.name.isEmpty || app.phone.isEmpty)
+                }
             } else if let me = app.serverMe {
                 statusRow("Connection", value: app.serverReachable ? "Live" : "Unreachable",
                           color: app.serverReachable ? .green : .red)
@@ -81,6 +92,16 @@ struct SafetyView: View {
                     statusRow("Comfort", value: "\(Int(comfort)) km")
                 }
                 statusRow("Server time", value: Date(timeIntervalSince1970: me.serverTs).formatted(date: .omitted, time: .shortened))
+
+                if !app.serverReachable {
+                    Button {
+                        app.reconnectToServer()
+                    } label: {
+                        Label("Retry connection", systemImage: "arrow.clockwise")
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .buttonStyle(.bordered)
+                }
             } else {
                 HStack {
                     ProgressView().scaleEffect(0.7)

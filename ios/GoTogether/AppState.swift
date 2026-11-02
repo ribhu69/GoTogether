@@ -158,6 +158,31 @@ final class AppState {
         idVerified = u.idVerified
     }
 
+    /// Re-register with the server using the current profile (for reconnect).
+    /// Resyncs intent + location after successful registration.
+    func reconnectToServer() {
+        guard !name.isEmpty, !phone.isEmpty else { return }
+        Task {
+            guard let u = try? await api.register(
+                name: name, phone: phone, gender: gender.rawValue.lowercased(),
+                idType: idType, idLast4: idLast4,
+                emergencyName: emergencyName, emergencyPhone: emergencyPhone)
+            else {
+                await MainActor.run { serverReachable = false }
+                return
+            }
+            await MainActor.run {
+                phoneVerified = u.phoneVerified
+                idVerified = u.idVerified
+                serverReachable = true
+            }
+            // Re-sync intent + location if destination was set
+            if hasDestination { syncIntent() }
+            syncLocation()
+            fetchServerStatus()
+        }
+    }
+
     func verifyPhoneOnServer(_ otp: String) async {
         guard let u = try? await api.verifyPhone(otp: otp) else { return }
         phoneVerified = u.phoneVerified
