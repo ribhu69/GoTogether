@@ -148,10 +148,12 @@ struct MapHomeView: View {
         .task {
             // Polling loop: refresh intents + peer locations + messages every 3 seconds
             while !Task.isCancelled {
-                app.pollPending()
-                app.refreshIntents()
+                // 1. Publish our data first (so others can find us)
                 app.syncLocation()
                 if app.hasDestination { app.syncIntent() }
+                // 2. Then search for others
+                app.pollPending()
+                app.refreshIntents()
                 app.pollMessagesFromPeers()
                 try? await Task.sleep(for: .seconds(4))
             }
