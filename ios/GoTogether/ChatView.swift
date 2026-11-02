@@ -49,6 +49,7 @@ struct ChatView: View {
             .padding(.vertical, 8)
             .background(.regularMaterial)
         }
+        .adaptiveWidth()
         .navigationTitle("Chat")
         .navigationBarTitleDisplayMode(.inline)
         .task {

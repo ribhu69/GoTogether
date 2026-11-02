@@ -9,6 +9,7 @@ struct TripView: View {
             Group {
                 if let t = app.activeTrip { active(t) } else { idle }
             }
+            .adaptiveWidth()
             .navigationTitle("Trip")
         }
     }

@@ -34,6 +34,7 @@ struct SafetyView: View {
                     Text("Clears saved profile and returns to onboarding. Use this to change your name, phone, or emergency contact.")
                 }
             }
+            .adaptiveWidth()
             .navigationTitle("Safety")
             .confirmationDialog("Reset profile?", isPresented: $showResetConfirm, titleVisibility: .visible) {
                 Button("Reset", role: .destructive) {

@@ -110,6 +110,7 @@ struct MapHomeView: View {
             }
             .padding(.horizontal, 12)
             .padding(.top, 8)
+            .adaptiveWidth()
         }
         .onAppear {
             app.location.request()

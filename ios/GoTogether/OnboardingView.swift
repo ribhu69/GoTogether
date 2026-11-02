@@ -90,6 +90,7 @@ struct OnboardingView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 12)
             }
+            .adaptiveWidth()
         }
         .onAppear {
             app.loadSavedProfile()
