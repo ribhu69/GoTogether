@@ -314,6 +314,20 @@ struct MapHomeView: View {
         app.openIntents.filter { Geo.km(app.myOrigin, $0.origin) <= originSpanKm }
     }
 
+    private var statusLabel: String {
+        if !app.hasDestination {
+            return "Pick a destination to find co-riders"
+        }
+        let n = openVisible.count
+        if n > 0 {
+            return "Comfort: \(Int(app.myComfortKm)) km · \(n) compatible nearby"
+        }
+        if app.iAmOpen {
+            return "No compatible travelers — try widening comfort range"
+        }
+        return "Toggle 'Open' so others can find you"
+    }
+
     private var quickDestinations: some View {
         @Bindable var app = app
         let recents = app.recentSearches
@@ -404,8 +418,9 @@ struct MapHomeView: View {
                             Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.secondary)
                         }
                         HStack(spacing: 4) {
-                            Text("Comfort: \(Int(app.myComfortKm)) km · \(openVisible.count) nearby")
+                            Text(statusLabel)
                                 .font(.caption).foregroundStyle(.secondary)
+                                .lineLimit(1)
                             if app.isRefreshing {
                                 ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
                             } else if let ts = app.lastRefreshAt {

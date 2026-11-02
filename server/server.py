@@ -170,20 +170,15 @@ class Handler(BaseHTTPRequestHandler):
 
         results.sort(key=lambda x: x["destGapKm"])
 
-        # Include peer locations: any open traveler at the same airport (origin gap ≤ 0.5 km).
-        # This is "who can I see" — broader than matching, which requires mutual dest compatibility.
+        # Include peer locations for mutually compatible travelers only:
+        # same airport (≤0.5 km), mutual destinations within each other's comfort radii.
         now = time.time()
-        peer_ids = set()
-        for i in intents.values():
-            if not i["isOpen"] or i["userId"] == uid: continue
-            if haversine_km(origin, i["origin"]) <= 0.5:
-                peer_ids.add(i["userId"])
-
+        compatible_user_ids = {r["userId"] for r in results}
         peers = []
         for lid, loc in locations.items():
             if lid == uid: continue
             if now - loc.get("ts", 0) > 30: continue
-            if lid not in peer_ids: continue
+            if lid not in compatible_user_ids: continue
             peers.append({
                 "userId": lid,
                 "userName": users.get(lid, {}).get("name", lid),
