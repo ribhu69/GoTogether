@@ -17,8 +17,8 @@ final class AppState {
     var emergencyName = ""
     var emergencyPhone = ""
 
-    /// True once the user explicitly completes all onboarding steps.
-    var onboardingFinished = false
+    /// True once the user explicitly completes all onboarding steps. Persisted.
+    var onboardingFinished: Bool = Persistence.onboardingFinished
 
     /// Quick-start eligibility: previously completed onboarding.
     var hasSavedProfile: Bool {
@@ -83,15 +83,42 @@ final class AppState {
         Persistence.savedIdType = idType
         Persistence.savedIdLast4 = idLast4
         Persistence.onboardingComplete = true
+        Persistence.onboardingFinished = true
         onboardingFinished = true
     }
 
     func quickStart() {
         loadSavedProfile()
+        Persistence.onboardingFinished = true
         onboardingFinished = true
         if !phone.isEmpty && phoneVerified {
             Task { await registerWithServer() }
         }
+    }
+
+    /// Clear all persisted data and return to onboarding.
+    func resetProfile() {
+        Persistence.onboardingComplete = false
+        Persistence.onboardingFinished = false
+        Persistence.savedName = ""
+        Persistence.savedPhone = ""
+        Persistence.savedGender = Gender.female.rawValue
+        Persistence.savedEmergencyName = ""
+        Persistence.savedEmergencyPhone = ""
+        Persistence.savedPhoneVerified = false
+        Persistence.savedIdVerified = false
+        Persistence.savedIdType = "Aadhaar"
+        Persistence.savedIdLast4 = ""
+        Persistence.homeAddress = nil
+        // In-memory state
+        name = ""; phone = ""; gender = .female
+        phoneVerified = false; idVerified = false
+        idLast4 = ""; emergencyName = ""; emergencyPhone = ""
+        onboardingFinished = false
+        api.userId = nil
+        serverIntents = []; serverCompatible = []; serverPending = []
+        peerLocations = []
+        iAmOpen = false
     }
 
     // ── Origin tracking ──

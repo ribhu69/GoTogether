@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SafetyView: View {
     @Environment(AppState.self) private var app
+    @State private var showResetConfirm = false
 
     var body: some View {
         NavigationStack {
@@ -22,8 +23,26 @@ struct SafetyView: View {
                     if app.safetyLog.isEmpty { Text("None").foregroundStyle(.secondary) }
                     ForEach(app.safetyLog, id: \.self) { Text($0).font(.footnote) }
                 }
+
+                Section {
+                    Button(role: .destructive) {
+                        showResetConfirm = true
+                    } label: {
+                        Label("Reset Profile & Re-onboard", systemImage: "arrow.counterclockwise")
+                    }
+                } footer: {
+                    Text("Clears saved profile and returns to onboarding. Use this to change your name, phone, or emergency contact.")
+                }
             }
             .navigationTitle("Safety")
+            .confirmationDialog("Reset profile?", isPresented: $showResetConfirm, titleVisibility: .visible) {
+                Button("Reset", role: .destructive) {
+                    app.resetProfile()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Your profile, ID verification, and emergency contact will be cleared. You'll need to re-onboard.")
+            }
         }
     }
 }

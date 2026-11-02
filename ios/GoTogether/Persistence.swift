@@ -30,6 +30,11 @@ enum Persistence {
         set { defaults.set(newValue, forKey: "onboardingComplete") }
     }
 
+    static var onboardingFinished: Bool {
+        get { defaults.bool(forKey: "onboardingFinished") }
+        set { defaults.set(newValue, forKey: "onboardingFinished") }
+    }
+
     static var savedName: String {
         get { defaults.string(forKey: "savedName") ?? "" }
         set { defaults.set(newValue, forKey: "savedName") }
