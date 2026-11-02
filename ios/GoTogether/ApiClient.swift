@@ -104,13 +104,15 @@ final class ApiClient {
         try await post("/api/verify", VerifyBody(userId: userId!, type: "id", otp: nil, idLast4: idLast4))
     }
 
-    func upsertIntent(origin: Place, dest: Place, comfortKm: Double, isOpen: Bool) async throws -> [ServerIntent] {
+    func upsertIntent(origin: Place, dest: Place, comfortKm: Double, isOpen: Bool,
+                       userName: String = "", userGender: String = "") async throws -> [ServerIntent] {
         struct R: Decodable { let compatible: [ServerIntent] }
         let r: R = try await post("/api/intent", IntentBody(
             userId: userId!,
             origin: ServerCoord(lat: origin.lat, lon: origin.lon, name: origin.name),
             dest: ServerCoord(lat: dest.lat, lon: dest.lon, name: dest.name),
-            comfortRadiusKm: comfortKm, isOpen: isOpen))
+            comfortRadiusKm: comfortKm, isOpen: isOpen,
+            userName: userName, userGender: userGender))
         return r.compatible
     }
 
@@ -203,6 +205,7 @@ private struct VerifyBody: Encodable {
 private struct IntentBody: Encodable {
     let userId: String; let origin: ServerCoord; let dest: ServerCoord
     let comfortRadiusKm: Double; let isOpen: Bool
+    let userName: String; let userGender: String
 }
 
 private struct LocationBody: Encodable {

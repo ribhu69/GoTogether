@@ -199,7 +199,8 @@ final class AppState {
         guard isConnected else { return }
         Task {
             let compat = (try? await api.upsertIntent(
-                origin: myOrigin, dest: myDest, comfortKm: myComfortKm, isOpen: iAmOpen)) ?? []
+                origin: myOrigin, dest: myDest, comfortKm: myComfortKm, isOpen: iAmOpen,
+                userName: name, userGender: gender.rawValue.lowercased())) ?? []
             await MainActor.run { serverCompatible = compat }
         }
     }

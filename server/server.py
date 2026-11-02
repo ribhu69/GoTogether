@@ -197,7 +197,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def upsert_intent(self, b):
         u = users.get(b.get("userId", ""))
-        if not u: return self._respond(*err("user not found"))
+        if not u:
+            # Server restart or stale userId — auto-create minimal profile
+            uid = b["userId"]
+            u = {
+                "userId": uid,
+                "name": b.get("userName", uid[:8]),
+                "phone": b.get("phone", ""),
+                "gender": b.get("userGender", "other"),
+                "idType": "", "idLast4": "",
+                "emergencyName": "", "emergencyPhone": "",
+                "phoneVerified": True, "idVerified": True,
+                "createdAt": time.time(),
+            }
+            users[uid] = u
         iid = b["userId"]  # one intent per user
         i = {
             "intentId": iid,
