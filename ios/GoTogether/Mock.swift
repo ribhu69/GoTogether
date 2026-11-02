@@ -14,20 +14,20 @@ enum Mock {
     static let places: [Place] = [airport, hebbal, indiranagar, koramangala, marathahalli]
 
     static func riders() -> [Rider] {[
-        Rider(name: "Priya S.", gender: .female, rating: 4.8, trips: 23, idVerified: true,
+        Rider(userId: "priya", name: "Priya S.", gender: .female, rating: 4.8, trips: 23, idVerified: true,
               idRef: "Aadhaar ••••1234", destination: indiranagar, departAt: Date()),
-        Rider(name: "Arjun B.", gender: .male, rating: 4.5, trips: 12, idVerified: true,
+        Rider(userId: "arjun", name: "Arjun B.", gender: .male, rating: 4.5, trips: 12, idVerified: true,
               idRef: "DL ••••5678", destination: hebbal, departAt: Date()),
-        Rider(name: "Sneha P.", gender: .female, rating: 4.2, trips: 5, idVerified: false,
+        Rider(userId: "sneha", name: "Sneha P.", gender: .female, rating: 4.2, trips: 5, idVerified: false,
               idRef: "Aadhaar ••••9012", destination: koramangala, departAt: Date()),
     ]}
 
     static func openIntents(now: Date) -> [TravelIntent] {[
-        TravelIntent(rider: Rider(name: "Priya S.", gender: .female, rating: 4.8, trips: 23,
+        TravelIntent(userId: "priya", rider: Rider(userId: "priya", name: "Priya S.", gender: .female, rating: 4.8, trips: 23,
                      idVerified: true, idRef: "Aadhaar ••••1234",
                      destination: indiranagar, departAt: now),
                      origin: airportEdge, comfortRadiusKm: 10, isOpen: true, openUntil: now.addingTimeInterval(3600)),
-        TravelIntent(rider: Rider(name: "Vikram T.", gender: .male, rating: 4.6, trips: 18,
+        TravelIntent(userId: "vikram", rider: Rider(userId: "vikram", name: "Vikram T.", gender: .male, rating: 4.6, trips: 18,
                      idVerified: true, idRef: "Passport ••••3456",
                      destination: marathahalli, departAt: now),
                      origin: airport, comfortRadiusKm: 5, isOpen: true, openUntil: now.addingTimeInterval(3600)),

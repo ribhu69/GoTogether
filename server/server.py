@@ -13,9 +13,36 @@ Two devices on the same WiFi can discover each other in real time through
 the /api/location endpoint (updated every few seconds by each client) and
 the /api/intents endpoint (which now returns peer locations too).
 """
-import json, time, math, uuid, sys, socket
+import json, time, math, uuid, sys, socket, os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
+
+
+# ── chat persistence ──────────────────────────────────────────────
+LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+
+def _log_message(chat_id: str, msg: dict) -> None:
+    """Append one message JSON line to the chat log file."""
+    path = os.path.join(LOG_DIR, f"chat_{chat_id}.jsonl")
+    with open(path, "a") as f:
+        f.write(json.dumps(msg) + "\n")
+
+def _load_messages(chat_id: str) -> list[dict]:
+    """Load all messages for a chat from the log file (lazy)."""
+    path = os.path.join(LOG_DIR, f"chat_{chat_id}.jsonl")
+    if not os.path.exists(path):
+        return []
+    msgs = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    msgs.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
+    return msgs
 
 
 def local_ip() -> str:
@@ -366,7 +393,9 @@ class Handler(BaseHTTPRequestHandler):
         cid = self._chat_id(from_uid, to_uid)
         msg = {"fromUserId": from_uid, "toUserId": to_uid,
                "text": text, "ts": time.time()}
+        # In-memory + file persistence
         messages.setdefault(cid, []).append(msg)
+        _log_message(cid, msg)
         self._respond(*ok(msg, 201))
 
     def get_messages(self, qs):
@@ -379,8 +408,14 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             return self._respond(*err("bad since"))
         cid = self._chat_id(uid, peer)
-        msgs = messages.get(cid, [])
-        result = [m for m in msgs if m["ts"] > since]
+        # Merge in-memory + file (pick whichever has more messages)
+        mem = messages.get(cid, [])
+        file_msgs = _load_messages(cid)
+        all_msgs = file_msgs if len(file_msgs) >= len(mem) else mem
+        # Sync in-memory with file (for restarts)
+        if all_msgs and cid not in messages:
+            messages[cid] = all_msgs
+        result = [m for m in all_msgs if m["ts"] > since]
         self._respond(*ok({"messages": result}))
 
     def _find_compatible(self, intent: dict) -> list:

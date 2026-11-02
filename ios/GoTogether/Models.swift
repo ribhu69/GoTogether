@@ -28,6 +28,7 @@ struct PeerLocation: Identifiable {
 
 struct Rider: Identifiable, Hashable {
     let id = UUID()
+    let userId: String           // server userId for reliable peer matching
     let name: String
     let gender: Gender
     let rating: Double
@@ -41,6 +42,7 @@ struct Rider: Identifiable, Hashable {
 /// A user who has toggled "open to travel." Broadcasts origin, destination, and comfort radius.
 struct TravelIntent: Identifiable, Hashable {
     let id = UUID()
+    let userId: String           // server userId for reliable peer matching
     let rider: Rider
     var origin: Place
     var comfortRadiusKm: Double

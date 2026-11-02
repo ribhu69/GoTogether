@@ -305,7 +305,7 @@ final class AppState {
     func acceptServerMatch(_ sm: ServerMatch) async {
         guard let m = try? await api.respondToMatch(matchId: sm.matchId, accept: true) else { return }
         await MainActor.run {
-            let rider = Rider(name: sm.fromUserName, gender: .other, rating: 5, trips: 0,
+            let rider = Rider(userId: sm.fromUserId, name: sm.fromUserName, gender: .other, rating: 5, trips: 0,
                 idVerified: true, idRef: "", destination: myDest, departAt: Date())
             let match = Match(rider: rider, destGapKm: sm.destGapKm ?? 0, timeGapMin: 0,
                 soloFare: Int(Fare.solo(to: myDest).rounded()),

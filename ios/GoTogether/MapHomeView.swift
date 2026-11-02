@@ -670,7 +670,7 @@ struct MapHomeView: View {
                                 Button {
                                     showSheet = false
                                     if let peer = app.peerLocations.first(where: {
-                                        $0.name == i.rider.name || $0.id == i.rider.name
+                                        $0.id == i.userId
                                     }) {
                                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                             selectedPeer = peer
@@ -777,7 +777,7 @@ struct MapHomeView: View {
                             Button {
                                 showSheet = false
                                 if let peer = app.peerLocations.first(where: {
-                                    $0.name == i.rider.name || $0.id == i.rider.name
+                                    $0.id == i.userId
                                 }) {
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                         selectedPeer = peer
@@ -817,7 +817,7 @@ struct MapHomeView: View {
                         tappedIntent = nil  // dismiss this sheet first
                         // Find peer in locations to open chat
                         if let peer = app.peerLocations.first(where: {
-                            $0.name == i.rider.name || $0.id == i.rider.name
+                            $0.id == i.userId
                         }) {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                 selectedPeer = peer

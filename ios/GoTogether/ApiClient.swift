@@ -173,6 +173,7 @@ final class ApiClient {
 
     func serverIntentToTravelIntent(_ si: ServerIntent) -> TravelIntent {
         let rider = Rider(
+            userId: si.userId,
             name: si.userName,
             gender: Gender(rawValue: si.userGender.capitalized) ?? .other,
             rating: si.rating, trips: si.trips,
@@ -181,6 +182,7 @@ final class ApiClient {
                                lat: si.dest.lat, lon: si.dest.lon),
             departAt: Date())
         return TravelIntent(
+            userId: si.userId,
             rider: rider,
             origin: Place(id: si.origin.name ?? "", name: si.origin.name ?? "",
                           lat: si.origin.lat, lon: si.origin.lon),
