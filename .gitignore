@@ -18,6 +18,9 @@ __pycache__/
 .idea/
 .vscode/
 
+# Device UDIDs / PII — never commit
+scripts/devices.local
+
 # Android
 android/.gradle/
 android/build/

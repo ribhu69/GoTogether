@@ -1,0 +1,12 @@
+# Copy this to devices.local and fill in your device UDIDs.
+# devices.local is gitignored — never push real UDIDs.
+#
+# How to find UDID:
+#   - Connect device via USB
+#   - Xcode → Window → Devices and Simulators
+#   - Or: system_profiler SPUSBDataType | grep -A 11 "iPhone\|iPad"
+#
+# Leave blank to skip device install (simulators will open instead).
+
+IPHONE_UDID=""
+IPAD_UDID=""
