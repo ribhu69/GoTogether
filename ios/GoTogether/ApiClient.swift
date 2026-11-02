@@ -36,6 +36,16 @@ struct MatchesResponse: Codable { let matches: [ServerMatch] }
 struct ServerChatMessage: Codable { let fromUserId: String; let toUserId: String; let text: String; let ts: Double }
 struct MessagesResponse: Codable { let messages: [ServerChatMessage] }
 
+// Server-side "me" status
+struct ServerMeStatus: Codable {
+    let userId: String; let name: String
+    let phoneVerified: Bool; let idVerified: Bool
+    let hasLocation: Bool; let locationAgeSec: Double?
+    let hasIntent: Bool; let intentOpen: Bool
+    let intentDest: String?; let comfortRadiusKm: Double?
+    let serverTs: Double
+}
+
 struct SearchResult {
     let intents: [ServerIntent]
     let peers: [PeerLocation]
@@ -151,6 +161,10 @@ final class ApiClient {
         let r: MessagesResponse = try await get(
             "/api/messages?userId=\(userId!)&peerId=\(peerId)&since=\(since)")
         return r.messages
+    }
+
+    func fetchMe() async throws -> ServerMeStatus {
+        try await get("/api/me?userId=\(userId!)")
     }
 
     // ── bridge helpers ──

@@ -64,6 +64,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/match/pending": self.pending_matches(qs)
         elif path == "/api/locations":     self.get_locations(qs)
         elif path == "/api/messages":      self.get_messages(qs)
+        elif path == "/api/me":            self.me(qs)
         else: self._respond(*err("not found", 404))
 
     def do_POST(self):
@@ -92,6 +93,29 @@ class Handler(BaseHTTPRequestHandler):
     def health(self):
         self._respond(*ok({"status": "ok", "users": len(users), "intents": len(intents),
                            "matches": len(matches), "locations": len(locations), "ts": time.time()}))
+
+    def me(self, qs):
+        """Return this user's server-side state — profile, intent, location freshness."""
+        uid = qs.get("userId", [""])[0]
+        u = users.get(uid)
+        if not u:
+            return self._respond(*err("user not found"))
+        now = time.time()
+        loc = locations.get(uid)
+        intent = intents.get(uid)
+        return self._respond(*ok({
+            "userId": uid,
+            "name": u["name"],
+            "phoneVerified": u["phoneVerified"],
+            "idVerified": u["idVerified"],
+            "hasLocation": loc is not None,
+            "locationAgeSec": round(now - loc["ts"], 1) if loc else None,
+            "hasIntent": intent is not None,
+            "intentOpen": intent["isOpen"] if intent else False,
+            "intentDest": intent["dest"]["name"] if intent else None,
+            "comfortRadiusKm": intent["comfortRadiusKm"] if intent else None,
+            "serverTs": now,
+        }))
 
     # ── endpoints ────────────────────────────────────────────────
 

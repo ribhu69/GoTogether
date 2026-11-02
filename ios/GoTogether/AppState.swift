@@ -68,6 +68,10 @@ final class AppState {
     var lastChatPoll: [String: Double] = [:]   // peerId → last ts polled
     var unreadChats: Set<String> = []           // peerIds with unread messages
 
+    // Server-side status (for diagnostics)
+    var serverMe: ServerMeStatus?
+    var serverReachable = false
+
     /// True when registered with the server.
     var isConnected: Bool { api.userId != nil }
 
@@ -412,5 +416,23 @@ final class AppState {
         // Cap at 10
         if list.count > 10 { list = Array(list.prefix(10)) }
         recentSearches = list
+    }
+
+    // MARK: - Server status
+
+    func fetchServerStatus() {
+        guard isConnected else {
+            serverReachable = false; serverMe = nil; return
+        }
+        Task {
+            if let me = try? await api.fetchMe() {
+                await MainActor.run {
+                    serverMe = me
+                    serverReachable = true
+                }
+            } else {
+                await MainActor.run { serverReachable = false }
+            }
+        }
     }
 }

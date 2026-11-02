@@ -19,6 +19,13 @@ struct SafetyView: View {
                     Label("PIN check before boarding", systemImage: "number.square")
                     Label("One-tap SOS: alerts contact and dials 112", systemImage: "exclamationmark.triangle")
                 }
+
+                // Server status
+                Section {
+                    serverStatusSection
+                } header: {
+                    Label("Server Status", systemImage: "network")
+                }
                 Section("SOS history") {
                     if app.safetyLog.isEmpty { Text("None").foregroundStyle(.secondary) }
                     ForEach(app.safetyLog, id: \.self) { Text($0).font(.footnote) }
@@ -36,6 +43,7 @@ struct SafetyView: View {
             }
             .adaptiveWidth()
             .navigationTitle("Safety")
+            .onAppear { app.fetchServerStatus() }
             .confirmationDialog("Reset profile?", isPresented: $showResetConfirm, titleVisibility: .visible) {
                 Button("Reset", role: .destructive) {
                     app.resetProfile()
@@ -44,6 +52,49 @@ struct SafetyView: View {
             } message: {
                 Text("Your profile, ID verification, and emergency contact will be cleared. You'll need to re-onboard.")
             }
+        }
+    }
+
+    // MARK: - Server status
+
+    private var serverStatusSection: some View {
+        Group {
+            if !app.isConnected {
+                Label("Not connected — register in onboarding", systemImage: "wifi.slash")
+                    .foregroundStyle(.secondary)
+            } else if let me = app.serverMe {
+                statusRow("Connection", value: app.serverReachable ? "Live" : "Unreachable",
+                          color: app.serverReachable ? .green : .red)
+                statusRow("User ID", value: String(me.userId.prefix(12)))
+                if let age = me.locationAgeSec {
+                    statusRow("Location", value: age < 30 ? "Fresh (\(Int(age))s ago)" : "Stale (\(Int(age))s ago)",
+                              color: age < 30 ? .green : .orange)
+                } else {
+                    statusRow("Location", value: "Not sent yet", color: .secondary)
+                }
+                statusRow("Intent", value: me.hasIntent ? (me.intentOpen ? "Open" : "Closed") : "Not set",
+                          color: me.intentOpen ? .green : .secondary)
+                if let dest = me.intentDest {
+                    statusRow("Destination", value: dest)
+                }
+                if let comfort = me.comfortRadiusKm {
+                    statusRow("Comfort", value: "\(Int(comfort)) km")
+                }
+                statusRow("Server time", value: Date(timeIntervalSince1970: me.serverTs).formatted(date: .omitted, time: .shortened))
+            } else {
+                HStack {
+                    ProgressView().scaleEffect(0.7)
+                    Text("Fetching server status…").font(.subheadline).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func statusRow(_ label: String, value: String, color: Color = .primary) -> some View {
+        HStack {
+            Text(label).font(.subheadline).foregroundStyle(.secondary)
+            Spacer()
+            Text(value).font(.subheadline.weight(.medium)).foregroundStyle(color)
         }
     }
 }
