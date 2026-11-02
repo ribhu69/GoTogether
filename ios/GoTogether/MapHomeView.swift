@@ -151,6 +151,7 @@ struct MapHomeView: View {
                 app.pollPending()
                 app.refreshIntents()
                 app.syncLocation()
+                if app.hasDestination { app.syncIntent() }
                 app.pollMessagesFromPeers()
                 try? await Task.sleep(for: .seconds(4))
             }
