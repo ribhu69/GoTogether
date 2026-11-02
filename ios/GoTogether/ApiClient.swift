@@ -32,6 +32,10 @@ struct ServerPeerLocation: Codable {
 struct IntentsResponse: Codable { let intents: [ServerIntent]; let peers: [ServerPeerLocation]? }
 struct MatchesResponse: Codable { let matches: [ServerMatch] }
 
+// Chat
+struct ServerChatMessage: Codable { let fromUserId: String; let toUserId: String; let text: String; let ts: Double }
+struct MessagesResponse: Codable { let messages: [ServerChatMessage] }
+
 struct SearchResult {
     let intents: [ServerIntent]
     let peers: [PeerLocation]
@@ -137,6 +141,18 @@ final class ApiClient {
         try await post("/api/match/respond", MatchRespondBody(matchId: matchId, userId: userId!, accept: accept))
     }
 
+    // ── chat ──
+
+    func sendMessage(toUserId: String, text: String) async throws -> ServerChatMessage {
+        try await post("/api/message", SendMessageBody(fromUserId: userId!, toUserId: toUserId, text: text))
+    }
+
+    func fetchMessages(peerId: String, since: Double = 0) async throws -> [ServerChatMessage] {
+        let r: MessagesResponse = try await get(
+            "/api/messages?userId=\(userId!)&peerId=\(peerId)&since=\(since)")
+        return r.messages
+    }
+
     // ── bridge helpers ──
 
     func serverIntentToTravelIntent(_ si: ServerIntent) -> TravelIntent {
@@ -185,4 +201,8 @@ private struct MatchRequestBody: Encodable {
 
 private struct MatchRespondBody: Encodable {
     let matchId: String; let userId: String; let accept: Bool
+}
+
+private struct SendMessageBody: Encodable {
+    let fromUserId: String; let toUserId: String; let text: String
 }

@@ -30,6 +30,7 @@ final class AppState {
     var myDest: Place = Mock.places.first { $0.id != "BLR" } ?? Mock.places[0]
     var myComfortKm: Double = 5
     var iAmOpen = false
+    var hasDestination = false  // true only after user explicitly picks a destination
 
     // Home address
     var homeAddress: Place? {
@@ -54,6 +55,11 @@ final class AppState {
     // Polling status
     var isRefreshing = false
     var lastRefreshAt: Date?
+
+    // Chat
+    var chatMessages: [ChatMessage] = []
+    var activeChatPeerId: String = ""
+    var lastChatPoll: Double = 0
 
     /// True when registered with the server.
     var isConnected: Bool { api.userId != nil }
@@ -171,7 +177,12 @@ final class AppState {
     }
 
     func refreshIntents() {
-        guard isConnected else { return }
+        guard isConnected, hasDestination else {
+            Task { @MainActor in
+                serverIntents = []; peerLocations = []
+            }
+            return
+        }
         Task {
             await MainActor.run { isRefreshing = true }
             let result = (try? await api.searchIntents(
@@ -291,4 +302,55 @@ final class AppState {
     }
 
     private func stamp() -> String { Date().formatted(date: .omitted, time: .shortened) }
+
+    // MARK: - Chat
+
+    func openChat(with peerId: String) {
+        ChatMessage.myUserId = api.userId ?? ""
+        activeChatPeerId = peerId
+        lastChatPoll = 0
+        chatMessages = []
+        pollChat()
+    }
+
+    func closeChat() {
+        activeChatPeerId = ""
+        chatMessages = []
+    }
+
+    func sendChatMessage(_ text: String) {
+        guard isConnected, !activeChatPeerId.isEmpty else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        Task {
+            guard let sm = try? await api.sendMessage(toUserId: activeChatPeerId, text: trimmed) else { return }
+            await MainActor.run {
+                let msg = ChatMessage(fromUserId: sm.fromUserId, toUserId: sm.toUserId,
+                                      text: sm.text, ts: sm.ts)
+                chatMessages.append(msg)
+                lastChatPoll = sm.ts
+            }
+        }
+    }
+
+    func pollChat() {
+        guard isConnected, !activeChatPeerId.isEmpty else { return }
+        ChatMessage.myUserId = api.userId ?? ""
+        Task {
+            let msgs: [ServerChatMessage] = (try? await api.fetchMessages(
+                peerId: activeChatPeerId, since: lastChatPoll)) ?? []
+            guard !msgs.isEmpty else { return }
+            await MainActor.run {
+                for sm in msgs {
+                    let msg = ChatMessage(fromUserId: sm.fromUserId, toUserId: sm.toUserId,
+                                          text: sm.text, ts: sm.ts)
+                    if !chatMessages.contains(where: { $0.ts == msg.ts && $0.fromUserId == msg.fromUserId }) {
+                        chatMessages.append(msg)
+                    }
+                }
+                chatMessages.sort { $0.ts < $1.ts }
+                if let latest = msgs.last { lastChatPoll = latest.ts }
+            }
+        }
+    }
 }

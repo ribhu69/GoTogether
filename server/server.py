@@ -34,6 +34,7 @@ users: dict[str, dict] = {}        # userId → profile
 intents: dict[str, dict] = {}      # intentId → intent (keyed by userId, overwritten)
 matches: dict[str, dict] = {}      # matchId → match state
 locations: dict[str, dict] = {}    # userId → {lat, lon, name, destLat, destLon, destName, ts}
+messages: dict[str, list] = {}     # chatId → [{fromUserId, toUserId, text, ts}]
 
 # ── geo ──────────────────────────────────────────────────────────
 def haversine_km(a: dict, b: dict) -> float:
@@ -62,6 +63,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/intents":       self.search_intents(qs)
         elif path == "/api/match/pending": self.pending_matches(qs)
         elif path == "/api/locations":     self.get_locations(qs)
+        elif path == "/api/messages":      self.get_messages(qs)
         else: self._respond(*err("not found", 404))
 
     def do_POST(self):
@@ -73,6 +75,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/location":     self.update_location(body)
         elif path == "/api/match/request": self.request_match(body)
         elif path == "/api/match/respond": self.respond_match(body)
+        elif path == "/api/message":      self.send_message(body)
         else: self._respond(*err("not found", 404))
 
     def _body(self) -> dict:
@@ -167,12 +170,15 @@ class Handler(BaseHTTPRequestHandler):
 
         results.sort(key=lambda x: x["destGapKm"])
 
-        # Include peer locations (everyone except self, fresh within 30s)
+        # Include peer locations for compatible intents only (privacy: only
+        # show users who are mutually reachable within comfort radii).
         now = time.time()
+        compatible_user_ids = {r["userId"] for r in results}
         peers = []
         for lid, loc in locations.items():
             if lid == uid: continue
-            if now - loc.get("ts", 0) > 30: continue  # stale
+            if now - loc.get("ts", 0) > 30: continue
+            if lid not in compatible_user_ids: continue
             peers.append({
                 "userId": lid,
                 "userName": users.get(lid, {}).get("name", lid),
@@ -253,6 +259,38 @@ class Handler(BaseHTTPRequestHandler):
         else:
             m["status"] = "rejected"
         self._respond(*ok(m))
+
+    # ── chat ────────────────────────────────────────────────────
+
+    @staticmethod
+    def _chat_id(a: str, b: str) -> str:
+        return "-".join(sorted([a, b]))
+
+    def send_message(self, b):
+        from_uid = b.get("fromUserId", "")
+        to_uid = b.get("toUserId", "")
+        text = (b.get("text") or "").strip()
+        if not from_uid or not to_uid or not text:
+            return self._respond(*err("missing fromUserId, toUserId, or text"))
+        cid = self._chat_id(from_uid, to_uid)
+        msg = {"fromUserId": from_uid, "toUserId": to_uid,
+               "text": text, "ts": time.time()}
+        messages.setdefault(cid, []).append(msg)
+        self._respond(*ok(msg, 201))
+
+    def get_messages(self, qs):
+        uid = qs.get("userId", [""])[0]
+        peer = qs.get("peerId", [""])[0]
+        if not uid or not peer:
+            return self._respond(*err("missing userId or peerId"))
+        try:
+            since = float(qs.get("since", ["0"])[0])
+        except ValueError:
+            return self._respond(*err("bad since"))
+        cid = self._chat_id(uid, peer)
+        msgs = messages.get(cid, [])
+        result = [m for m in msgs if m["ts"] > since]
+        self._respond(*ok({"messages": result}))
 
     def _find_compatible(self, intent: dict) -> list:
         """Return intents that would match this one (two-way check)."""

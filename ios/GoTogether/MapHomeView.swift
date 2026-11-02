@@ -8,6 +8,7 @@ struct MapHomeView: View {
     @State private var showSheet = false
     @State private var sheetTab = 0   // 0=destination, 1=search, 2=intents
     @State private var tappedIntent: TravelIntent?
+    @State private var selectedPeer: PeerLocation?
     @State private var searchText = ""
     @State private var searchResults: [MKMapItem] = []
     @State private var isSearching = false
@@ -64,6 +65,7 @@ struct MapHomeView: View {
                                 .padding(.horizontal, 4).padding(.vertical, 2)
                                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 4))
                         }
+                        .onTapGesture { selectedPeer = peer }
                     }
 
                     // Line to their destination
@@ -142,6 +144,7 @@ struct MapHomeView: View {
         }
         .sheet(isPresented: $showSheet) { sheetContent }
         .sheet(item: $tappedIntent) { intent in intentDetail(intent) }
+        .sheet(item: $selectedPeer) { peer in PeerChatSheet(peer: peer) }
         .sheet(isPresented: $showRideApps) { rideAppsSheet }
     }
 
@@ -216,6 +219,7 @@ struct MapHomeView: View {
         let name = item.name ?? "Selected"
         app.myDest = Place(id: "search-\(name.hashValue)", name: name,
                            lat: c.latitude, lon: c.longitude)
+        app.hasDestination = true
         closeSearch()
     }
 
@@ -247,6 +251,7 @@ struct MapHomeView: View {
                 ForEach(Mock.places.filter { $0.id != "BLR" }) { place in
                     Button {
                         app.myDest = place
+                        app.hasDestination = true
                         closeSearch()
                     } label: {
                         HStack {
@@ -270,7 +275,7 @@ struct MapHomeView: View {
                 if let home = app.homeAddress {
                     Divider()
                     Button {
-                        app.myDest = home; closeSearch()
+                        app.myDest = home; app.hasDestination = true; closeSearch()
                     } label: {
                         HStack {
                             Image(systemName: "house.fill").foregroundStyle(.orange)
@@ -466,13 +471,13 @@ struct MapHomeView: View {
                         }
                     }
                     .contentShape(Rectangle())
-                    .onTapGesture { app.myDest = place; showSheet = false }
+                    .onTapGesture { app.myDest = place; app.hasDestination = true; showSheet = false }
                 }
             }
             if let home = app.homeAddress {
                 Section {
                     Button {
-                        app.myDest = home; showSheet = false
+                        app.myDest = home; app.hasDestination = true; showSheet = false
                     } label: {
                         Label("🏠 \(home.name)", systemImage: "house.fill")
                     }

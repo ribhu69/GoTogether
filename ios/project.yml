@@ -20,7 +20,7 @@ targets:
     sources: [GoTogether]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.gotogether.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.gotogether.demo
         INFOPLIST_KEY_CFBundleDisplayName: GoTogether
   GoTogetherTests:
     type: bundle.unit-test

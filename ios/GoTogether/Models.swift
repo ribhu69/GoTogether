@@ -78,3 +78,16 @@ struct Trip: Identifiable {
     var status: TripStatus = .requested
     var events: [String] = []
 }
+
+// MARK: - Chat
+
+struct ChatMessage: Identifiable, Equatable {
+    let id = UUID()
+    let fromUserId: String
+    let toUserId: String
+    let text: String
+    let ts: Double
+
+    var isFromMe: Bool { fromUserId == ChatMessage.myUserId }
+    static var myUserId = ""
+}
