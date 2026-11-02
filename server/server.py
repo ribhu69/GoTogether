@@ -146,21 +146,21 @@ class Handler(BaseHTTPRequestHandler):
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GoTogether Dashboard</title>
 <style>
-  *{box-sizing:border-box} body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:20px;background:#f0f2f5;color:#1a1a2e}
-  h1{margin:0 0 4px;font-size:24px} .sub{color:#666;margin:0 0 20px;font-size:13px}
-  .cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px}
-  .card{background:#fff;border-radius:12px;padding:18px 24px;min-width:110px;text-align:center;box-shadow:0 2px 8px #0000000d}
-  .card .num{font-size:32px;font-weight:700;color:#1a1a2e}
-  .card .label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-top:4px}
-  table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px #0000000d}
-  th,td{padding:12px 16px;text-align:left;font-size:13px}
-  th{background:#f7f8fa;font-weight:600;color:#555;text-transform:uppercase;font-size:11px;letter-spacing:.3px}
-  tr:not(:last-child) td{border-bottom:1px solid #f0f0f0}
-  td{color:#333;font-weight:450}
-  td:first-child{font-weight:600;color:#1a1a2e}
-  .green{color:#2e7d32!important;font-weight:600} .red{color:#c62828!important} .orange{color:#e65100!important}
-  .mono{font-family:'SF Mono',Monaco,monospace;font-size:11px;color:#888}
-  @media(prefers-color-scheme:dark){body{background:#0f0f1a;color:#e0e0e0} .card,.table{background:#1a1a2e} th{background:#16213e;color:#aaa} td{color:#ccc} td:first-child{color:#e0e0e0} tr:not(:last-child) td{border-color:#2a2a3e} .sub{color:#999}}
+  *{{box-sizing:border-box}} body{{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:20px;background:#f0f2f5;color:#1a1a2e}}
+  h1{{margin:0 0 4px;font-size:24px}} .sub{{color:#666;margin:0 0 20px;font-size:13px}}
+  .cards{{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px}}
+  .card{{background:#fff;border-radius:12px;padding:18px 24px;min-width:110px;text-align:center;box-shadow:0 2px 8px #0000000d}}
+  .card .num{{font-size:32px;font-weight:700;color:#1a1a2e}}
+  .card .label{{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-top:4px}}
+  table{{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px #0000000d}}
+  th,td{{padding:12px 16px;text-align:left;font-size:13px}}
+  th{{background:#f7f8fa;font-weight:600;color:#555;text-transform:uppercase;font-size:11px;letter-spacing:.3px}}
+  tr:not(:last-child) td{{border-bottom:1px solid #f0f0f0}}
+  td{{color:#333;font-weight:450}}
+  td:first-child{{font-weight:600;color:#1a1a2e}}
+  .green{{color:#2e7d32!important;font-weight:600}} .red{{color:#c62828!important}} .orange{{color:#e65100!important}}
+  .mono{{font-family:'SF Mono',Monaco,monospace;font-size:11px;color:#888}}
+  @media(prefers-color-scheme:dark){{body{{background:#0f0f1a;color:#e0e0e0}} .card{{background:#1a1a2e}} th{{background:#16213e;color:#aaa}} td{{color:#ccc}} td:first-child{{color:#e0e0e0}} tr:not(:last-child) td{{border-color:#2a2a3e}} .sub{{color:#999}}}}
 </style></head>
 <body>
 <h1>🚕 GoTogether</h1><p class="sub">Dashboard · auto-refresh 3s · {now:.0f}</p>
