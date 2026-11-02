@@ -36,6 +36,10 @@ struct MatchesResponse: Codable { let matches: [ServerMatch] }
 struct ServerChatMessage: Codable { let fromUserId: String; let toUserId: String; let text: String; let ts: Double }
 struct MessagesResponse: Codable { let messages: [ServerChatMessage] }
 
+// Bulk inbox
+struct InboxConversation: Codable { let peerId: String; let peerName: String; let messages: [ServerChatMessage] }
+struct InboxResponse: Codable { let conversations: [InboxConversation] }
+
 // Server-side "me" status
 struct ServerMeStatus: Codable {
     let userId: String; let name: String
@@ -174,6 +178,12 @@ final class ApiClient {
         let r: MessagesResponse = try await get(
             "/api/messages?userId=\(userId!)&peerId=\(peerId)&since=\(since)")
         return r.messages
+    }
+
+    func fetchInbox(since: Double = 0) async throws -> [InboxConversation] {
+        let r: InboxResponse = try await get(
+            "/api/messages/inbox?userId=\(userId!)&since=\(since)")
+        return r.conversations
     }
 
     func fetchMe() async throws -> ServerMeStatus {

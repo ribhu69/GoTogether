@@ -4,7 +4,6 @@ struct ChatView: View {
     @Environment(AppState.self) private var app
     @State private var draft = ""
     @FocusState private var focused: Bool
-    @State private var pollTimer: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,17 +51,10 @@ struct ChatView: View {
         .adaptiveWidth()
         .navigationTitle("Chat")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { focused = true }
         .task {
-            // Poll messages every 2 seconds while this view is visible
-            pollTimer = Task {
-                while !Task.isCancelled {
-                    app.fetchChatMessages(for: app.activeChatPeerId)
-                    try? await Task.sleep(for: .seconds(2))
-                }
-            }
-        }
-        .onDisappear {
-            pollTimer?.cancel()
+            // Initial load only — map loop's inbox polling handles ongoing updates
+            app.fetchChatMessages(for: app.activeChatPeerId)
         }
     }
 

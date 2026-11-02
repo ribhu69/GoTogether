@@ -91,6 +91,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/intents":       self.search_intents(qs)
         elif path == "/api/match/pending": self.pending_matches(qs)
         elif path == "/api/locations":     self.get_locations(qs)
+        elif path == "/api/messages/inbox": self.inbox(qs)
         elif path == "/api/messages":      self.get_messages(qs)
         elif path == "/api/me":            self.me(qs)
         else: self._respond(*err("not found", 404))
@@ -419,6 +420,32 @@ class Handler(BaseHTTPRequestHandler):
             messages[cid] = all_msgs
         result = [m for m in all_msgs if m["ts"] > since]
         self._respond(*ok({"messages": result}))
+
+    def inbox(self, qs):
+        """Return all conversations with new messages since `since`."""
+        uid = qs.get("userId", [""])[0]
+        if not uid:
+            return self._respond(*err("missing userId"))
+        try:
+            since = float(qs.get("since", ["0"])[0])
+        except ValueError:
+            return self._respond(*err("bad since"))
+        conversations = []
+        for cid, mem_msgs in messages.items():
+            ids = cid.split("-")
+            if uid not in ids: continue
+            peer = ids[0] if ids[1] == uid else ids[1]
+            # Merge with file
+            file_msgs = _load_messages(cid)
+            all_msgs = file_msgs if len(file_msgs) >= len(mem_msgs) else mem_msgs
+            new_msgs = [m for m in all_msgs if m["ts"] > since]
+            if new_msgs:
+                conversations.append({
+                    "peerId": peer,
+                    "peerName": users.get(peer, {}).get("name", peer[:8]),
+                    "messages": new_msgs,
+                })
+        self._respond(*ok({"conversations": conversations}))
 
     def _find_compatible(self, intent: dict) -> list:
         """Return intents that would match this one (two-way check)."""

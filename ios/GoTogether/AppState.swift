@@ -397,26 +397,39 @@ final class AppState {
         }
     }
 
-    /// Poll every visible peer for new messages. Called from the main map loop.
+    /// Poll inbox for new messages from all conversations. Called from map loop.
     func pollMessagesFromPeers() {
-        guard isConnected, !peerLocations.isEmpty else { return }
+        guard isConnected else { return }
         ChatMessage.myUserId = api.userId ?? ""
-        for peer in peerLocations {
-            let pid = peer.id
-            // Skip the currently open chat (pollChat handles it)
-            if pid == activeChatPeerId { continue }
-            let since = lastChatPoll[pid] ?? 0
-            Task {
-                let msgs: [ServerChatMessage] = (try? await api.fetchMessages(
-                    peerId: pid, since: since)) ?? []
-                guard !msgs.isEmpty else { return }
-                await MainActor.run {
-                    // Init lastChatPoll if this is the first message from this peer
+        Task {
+            // Always fetch all messages — dedup on client, no timestamp races
+            let conversations = (try? await api.fetchInbox(since: 0)) ?? []
+            guard !conversations.isEmpty else { return }
+            await MainActor.run {
+                for conv in conversations {
+                    let pid = conv.peerId
+                    // Track this peer for future polls
                     if lastChatPoll[pid] == nil { lastChatPoll[pid] = 0 }
-                    if let latest = msgs.last { lastChatPoll[pid] = latest.ts }
-                    // Any message FROM this peer (not from me) = unread
-                    let hasFromPeer = msgs.contains { $0.fromUserId == pid }
-                    if hasFromPeer { unreadChats.insert(pid) }
+                    // Merge messages: only add ones we haven't seen before
+                    var added = false
+                    for sm in conv.messages {
+                        let msg = ChatMessage(fromUserId: sm.fromUserId, toUserId: sm.toUserId,
+                                              text: sm.text, ts: sm.ts)
+                        if !chatMessages.contains(where: { $0.ts == msg.ts && $0.fromUserId == msg.fromUserId }) {
+                            chatMessages.append(msg)
+                            added = true
+                        }
+                    }
+                    if added { chatMessages.sort { $0.ts < $1.ts } }
+                    // Update last poll time
+                    if let latest = conv.messages.last {
+                        lastChatPoll[pid] = max(lastChatPoll[pid]!, latest.ts)
+                        // Don't mark own messages as unread
+                        let hasFromPeer = conv.messages.contains { $0.fromUserId == pid }
+                        if hasFromPeer, pid != activeChatPeerId {
+                            unreadChats.insert(pid)
+                        }
+                    }
                 }
             }
         }
