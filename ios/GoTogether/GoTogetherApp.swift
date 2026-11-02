@@ -20,7 +20,7 @@ struct RootView: View {
     @Environment(AppState.self) private var app
 
     var body: some View {
-        if app.onboarded {
+        if app.onboardingFinished {
             TabView {
                 MapHomeView()
                     .tabItem { Label("Map", systemImage: "map.fill") }

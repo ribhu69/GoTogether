@@ -5,8 +5,29 @@ set -e
 PORT="${1:-8080}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Find LAN IP
-LAN_IP=$(python3 -c "
+# ── Find all candidate IPs ──────────────────────────────────────────
+echo ""
+echo "═══════════════════════════════════════════"
+echo "  GoTogether Server"
+echo "═══════════════════════════════════════════"
+echo ""
+echo "  Server listening on:  http://0.0.0.0:$PORT"
+echo ""
+
+# Show every IPv4 address on common interfaces
+found=0
+for iface in en0 en1 en2 en3; do
+  ip=$(ifconfig "$iface" 2>/dev/null | awk '/inet / {print $2}')
+  if [ -n "$ip" ] && [ "$ip" != "127.0.0.1" ]; then
+    found=1
+    label="WiFi"
+    [ "$iface" != "en0" ] && label="$iface"
+    echo "  $label:  http://$ip:$PORT"
+  fi
+done
+
+# Also show the routed IP (might be VPN)
+ROUTED_IP=$(python3 -c "
 import socket
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 try:
@@ -14,18 +35,30 @@ try:
     print(s.getsockname()[0])
 finally:
     s.close()
-" 2>/dev/null || echo "unknown")
+" 2>/dev/null || echo "")
+
+if [ -n "$ROUTED_IP" ] && [ "$ROUTED_IP" != "127.0.0.1" ]; then
+  # Check if this is NOT one of the en* IPs (i.e. it's VPN)
+  is_vpn=1
+  for iface in en0 en1 en2 en3; do
+    ip=$(ifconfig "$iface" 2>/dev/null | awk '/inet / {print $2}')
+    if [ "$ip" = "$ROUTED_IP" ]; then is_vpn=0; break; fi
+  done
+  if [ $is_vpn -eq 1 ]; then
+    echo "  VPN (routed):       http://$ROUTED_IP:$PORT  ⚠️ likely won't work for LAN"
+  fi
+fi
 
 echo ""
-echo "═══════════════════════════════════════════"
-echo "  GoTogether Server"
-echo "═══════════════════════════════════════════"
+echo "  Simulator:           http://localhost:$PORT"
+echo "  Health check:        http://localhost:$PORT/api/health"
 echo ""
-echo "  iOS Simulator:    http://localhost:$PORT"
-echo "  Android Emulator: http://10.0.2.2:$PORT"
-echo "  Real device:      http://$LAN_IP:$PORT"
-echo ""
-echo "  Health:  http://localhost:$PORT/api/health"
+if [ $found -eq 1 ]; then
+  echo "  👆 Use the WiFi IP above for real devices on the same network."
+  echo "     If you're on VPN the routed IP may be wrong — use the WiFi one."
+else
+  echo "  ⚠️  No WiFi IP found. Check your network connection."
+fi
 echo "═══════════════════════════════════════════"
 echo ""
 

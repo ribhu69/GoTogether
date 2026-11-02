@@ -17,9 +17,12 @@ final class AppState {
     var emergencyName = ""
     var emergencyPhone = ""
 
-    /// True when all required fields are filled (phone + ID + name + emergency).
-    var onboarded: Bool {
-        phoneVerified && idVerified && !name.isEmpty && !emergencyPhone.isEmpty
+    /// True once the user explicitly completes all onboarding steps.
+    var onboardingFinished = false
+
+    /// Quick-start eligibility: previously completed onboarding.
+    var hasSavedProfile: Bool {
+        Persistence.onboardingComplete && !Persistence.savedName.isEmpty && !Persistence.savedPhone.isEmpty
     }
 
     // Trip intent
@@ -80,11 +83,12 @@ final class AppState {
         Persistence.savedIdType = idType
         Persistence.savedIdLast4 = idLast4
         Persistence.onboardingComplete = true
+        onboardingFinished = true
     }
 
     func quickStart() {
         loadSavedProfile()
-        // If previously verified on server, try reconnecting
+        onboardingFinished = true
         if !phone.isEmpty && phoneVerified {
             Task { await registerWithServer() }
         }

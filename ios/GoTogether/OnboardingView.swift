@@ -93,9 +93,7 @@ struct OnboardingView: View {
         }
         .onAppear {
             app.loadSavedProfile()
-            quickStartAvailable = Persistence.onboardingComplete
-                && !Persistence.savedName.isEmpty
-                && !Persistence.savedPhone.isEmpty
+            quickStartAvailable = app.hasSavedProfile
             serverURL = app.api.baseURL
         }
     }
@@ -190,28 +188,59 @@ struct OnboardingView: View {
         @Bindable var app = app
         return Form {
             Section {
-                TextField("Server URL", text: $serverURL)
-                    .keyboardType(.URL).autocapitalization(.none)
                 Toggle("Use server for live matching", isOn: $useServer)
-
-                if app.isConnected {
-                    Label("Connected as \(app.api.userId?.prefix(8) ?? "")…", systemImage: "checkmark.seal.fill")
-                        .foregroundStyle(.green)
-                } else if useServer {
-                    Button("Register on server") {
-                        app.api.baseURL = serverURL
-                        Task { await app.registerWithServer() }
-                    }
-                    .disabled(app.name.isEmpty || !app.phoneVerified || !app.idVerified || app.emergencyPhone.isEmpty)
-                }
-            } header: {
-                Label("Live Matching", systemImage: "network")
             } footer: {
                 if !useServer {
-                    Text("Without the server you can still plan trips, but live matching won't work. "
-                         + "Run the server on your Mac for LAN matching with friends.")
-                } else {
-                    Text("Two devices on the same WiFi can discover each other through the server.")
+                    Text("Without the server you can still plan trips, but you won't see other travelers in real time.")
+                }
+            }
+
+            if useServer {
+                Section {
+                    TextField("Server URL", text: $serverURL)
+                        .keyboardType(.URL).autocapitalization(.none)
+                } header: {
+                    Label("Server URL", systemImage: "network")
+                } footer: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Which URL to use:").font(.caption.weight(.medium))
+                        Text("• iOS Simulator → http://localhost:8080")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text("• Real device (same WiFi as Mac) → http://<Mac-IP>:8080")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text("Run ./start.sh in the server folder to see the Mac's IP. If you're on VPN, use the en0/WiFi IP, not the VPN IP.")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
+
+                Section {
+                    if app.isConnected {
+                        HStack {
+                            Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Connected to server").font(.subheadline.weight(.medium))
+                                Text("ID: \(app.api.userId?.prefix(10) ?? "")…")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    } else {
+                        Button {
+                            app.api.baseURL = serverURL
+                            Task { await app.registerWithServer() }
+                        } label: {
+                            HStack {
+                                Image(systemName: "arrow.up.forward.app")
+                                Text("Register on server")
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(app.name.isEmpty || !app.phoneVerified || !app.idVerified || app.emergencyPhone.isEmpty)
+                    }
+                } footer: {
+                    if !app.isConnected {
+                        Text("The server must be running on your Mac before you tap Register. Run: cd server && ./start.sh")
+                    }
                 }
             }
         }

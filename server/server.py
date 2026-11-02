@@ -274,6 +274,9 @@ if __name__ == "__main__":
     print(f"GoTogether server → http://0.0.0.0:{port}")
     print(f"  Local (simulator):  http://localhost:{port}")
     print(f"  LAN  (real device): http://{ip}:{port}")
+    if ip.startswith("10.") or ip.startswith("172.") or ip.startswith("192.168."):
+        print(f"  ⚠️  If your phone can't reach this IP, you may be on VPN.")
+        print(f"     Check: ifconfig en0 | grep 'inet ' for your real WiFi IP.")
     print(f"  Health check:       http://localhost:{port}/api/health")
     try:
         srv.serve_forever()
