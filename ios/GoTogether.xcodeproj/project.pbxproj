@@ -41,7 +41,7 @@
 		1F186027C6EBCFFD41AD021F /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		2D1A08D5100EC6B721DEA749 /* MatchingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchingEngine.swift; sourceTree = "<group>"; };
 		497D14A83F9661DCE54CAAB5 /* GoTogetherTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = GoTogetherTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		4A4D558ED947605182EF3D0D /* GoTogether.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GoTogether.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4A4D558ED947605182EF3D0D /* GoTogether.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GoTogether.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4E226894B7D409D84D01592C /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		794B2EF6C28BA5BE423E9727 /* RideHailing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideHailing.swift; sourceTree = "<group>"; };
 		7C9D0A08FDB1A919B96E54E4 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -148,8 +148,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
-				TargetAttributes = {
-				};
 			};
 			buildConfigurationList = 30904F6BBF141AB348B12B23 /* Build configuration list for PBXProject "GoTogether" */;
 			developmentRegion = en;
@@ -234,12 +232,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = B5BUT6982X;
 				INFOPLIST_KEY_CFBundleDisplayName = GoTogether;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.gotogether.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gotogether.appx;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -250,12 +249,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = B5BUT6982X;
 				INFOPLIST_KEY_CFBundleDisplayName = GoTogether;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.gotogether.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gotogether.appx;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
