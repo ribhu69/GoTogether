@@ -6,7 +6,12 @@ struct GoTogetherApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView().environment(app)
+            RootView()
+                .environment(app)
+                .onAppear {
+                    app.location.request()
+                    app.loadSavedProfile()
+                }
         }
     }
 }
@@ -24,6 +29,7 @@ struct RootView: View {
                 SafetyView()
                     .tabItem { Label("Safety", systemImage: "shield.checkered") }
             }
+            .onAppear { app.location.start() }
         } else {
             OnboardingView()
         }

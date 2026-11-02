@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import MapKit
 
 enum Gender: String, CaseIterable, Identifiable {
     case female = "Female", male = "Male", other = "Other"
@@ -12,6 +13,17 @@ struct Place: Identifiable, Hashable {
     let lat: Double
     let lon: Double
     var coord: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: lat, longitude: lon) }
+
+    static let defaultOrigin = Place(id: "current", name: "Current Location",
+        lat: 12.9716, lon: 77.5946) // Bangalore center — replaced by real GPS once authorized
+}
+
+/// A peer user's real-time location shown on the map.
+struct PeerLocation: Identifiable {
+    let id: String        // userId
+    let name: String
+    let coord: CLLocationCoordinate2D
+    let destination: Place?
 }
 
 struct Rider: Identifiable, Hashable {

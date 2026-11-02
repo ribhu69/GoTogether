@@ -9,13 +9,16 @@
 /* Begin PBXBuildFile section */
 		03884EBAA6B531B9095D6C9F /* MatchingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 102AEF74DB095468D9803295 /* MatchingTests.swift */; };
 		20F5CC563F4FA59DF279F1BF /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E226894B7D409D84D01592C /* HomeView.swift */; };
+		30CCEE352579068732A4F628 /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 962BB99BD5ED2BFF7ACD1BE8 /* Persistence.swift */; };
 		3FC993D3D71E06CEEC969CDD /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F186027C6EBCFFD41AD021F /* AppState.swift */; };
 		40A9F9858A0DBDB9680A1F9D /* ApiClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC5D7823074468A25E6CDE4 /* ApiClient.swift */; };
 		5D991178D78A773E3E20FE53 /* TripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA48AB96F7707B61819867A7 /* TripView.swift */; };
 		6D16B7826539A25A7CC3481B /* MatchingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1A08D5100EC6B721DEA749 /* MatchingEngine.swift */; };
+		7FA8BCA03573CD1991E009D2 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 195268921F3952630AF31A85 /* LocationManager.swift */; };
 		985AF1960D72E4E78423DEB6 /* MapHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5750E67074822FBAA958DB7 /* MapHomeView.swift */; };
 		AB65FDDC038D00DC4664F2DA /* Mock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B5208B6353C9B955F409E4 /* Mock.swift */; };
 		B41C068029858C53B5C8999D /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E459C058D60E5BC1C7F9E5 /* Models.swift */; };
+		E2D55D2B85BBB10DEE1B0F9F /* RideHailing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794B2EF6C28BA5BE423E9727 /* RideHailing.swift */; };
 		E46F6E6F5638C9FACA40418A /* SafetyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA05C19D246C64ED6699BB6F /* SafetyView.swift */; };
 		E5C3EEAE169C35F5B11DE216 /* GoTogetherApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0FDBA4F6807027A5CACE31 /* GoTogetherApp.swift */; };
 		FC4CF2C783DB079D2969C36D /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C9D0A08FDB1A919B96E54E4 /* OnboardingView.swift */; };
@@ -33,15 +36,18 @@
 
 /* Begin PBXFileReference section */
 		102AEF74DB095468D9803295 /* MatchingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchingTests.swift; sourceTree = "<group>"; };
+		195268921F3952630AF31A85 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
 		1B0FDBA4F6807027A5CACE31 /* GoTogetherApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoTogetherApp.swift; sourceTree = "<group>"; };
 		1F186027C6EBCFFD41AD021F /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		2D1A08D5100EC6B721DEA749 /* MatchingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchingEngine.swift; sourceTree = "<group>"; };
 		497D14A83F9661DCE54CAAB5 /* GoTogetherTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = GoTogetherTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		4A4D558ED947605182EF3D0D /* GoTogether.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GoTogether.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4A4D558ED947605182EF3D0D /* GoTogether.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GoTogether.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4E226894B7D409D84D01592C /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		794B2EF6C28BA5BE423E9727 /* RideHailing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideHailing.swift; sourceTree = "<group>"; };
 		7C9D0A08FDB1A919B96E54E4 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		81E459C058D60E5BC1C7F9E5 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		94B5208B6353C9B955F409E4 /* Mock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mock.swift; sourceTree = "<group>"; };
+		962BB99BD5ED2BFF7ACD1BE8 /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
 		9BC5D7823074468A25E6CDE4 /* ApiClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiClient.swift; sourceTree = "<group>"; };
 		C5750E67074822FBAA958DB7 /* MapHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapHomeView.swift; sourceTree = "<group>"; };
 		CA05C19D246C64ED6699BB6F /* SafetyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyView.swift; sourceTree = "<group>"; };
@@ -64,11 +70,14 @@
 				1F186027C6EBCFFD41AD021F /* AppState.swift */,
 				1B0FDBA4F6807027A5CACE31 /* GoTogetherApp.swift */,
 				4E226894B7D409D84D01592C /* HomeView.swift */,
+				195268921F3952630AF31A85 /* LocationManager.swift */,
 				C5750E67074822FBAA958DB7 /* MapHomeView.swift */,
 				2D1A08D5100EC6B721DEA749 /* MatchingEngine.swift */,
 				94B5208B6353C9B955F409E4 /* Mock.swift */,
 				81E459C058D60E5BC1C7F9E5 /* Models.swift */,
 				7C9D0A08FDB1A919B96E54E4 /* OnboardingView.swift */,
+				962BB99BD5ED2BFF7ACD1BE8 /* Persistence.swift */,
+				794B2EF6C28BA5BE423E9727 /* RideHailing.swift */,
 				CA05C19D246C64ED6699BB6F /* SafetyView.swift */,
 				FA48AB96F7707B61819867A7 /* TripView.swift */,
 			);
@@ -139,6 +148,8 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = 30904F6BBF141AB348B12B23 /* Build configuration list for PBXProject "GoTogether" */;
 			developmentRegion = en;
@@ -177,11 +188,14 @@
 				3FC993D3D71E06CEEC969CDD /* AppState.swift in Sources */,
 				E5C3EEAE169C35F5B11DE216 /* GoTogetherApp.swift in Sources */,
 				20F5CC563F4FA59DF279F1BF /* HomeView.swift in Sources */,
+				7FA8BCA03573CD1991E009D2 /* LocationManager.swift in Sources */,
 				985AF1960D72E4E78423DEB6 /* MapHomeView.swift in Sources */,
 				6D16B7826539A25A7CC3481B /* MatchingEngine.swift in Sources */,
 				AB65FDDC038D00DC4664F2DA /* Mock.swift in Sources */,
 				B41C068029858C53B5C8999D /* Models.swift in Sources */,
 				FC4CF2C783DB079D2969C36D /* OnboardingView.swift in Sources */,
+				30CCEE352579068732A4F628 /* Persistence.swift in Sources */,
+				E2D55D2B85BBB10DEE1B0F9F /* RideHailing.swift in Sources */,
 				E46F6E6F5638C9FACA40418A /* SafetyView.swift in Sources */,
 				5D991178D78A773E3E20FE53 /* TripView.swift in Sources */,
 			);
@@ -220,13 +234,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = B5BUT6982X;
 				INFOPLIST_KEY_CFBundleDisplayName = GoTogether;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.gotogether.aarka;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gotogether.app;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -237,13 +250,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = B5BUT6982X;
 				INFOPLIST_KEY_CFBundleDisplayName = GoTogether;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.gotogether.aarka;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gotogether.app;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

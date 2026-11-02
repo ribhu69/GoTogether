@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import CoreLocation
 
 // MARK: - JSON shapes matching the server
 
@@ -22,8 +23,21 @@ struct ServerMatch: Codable {
     let cabPlate: String?; let pin: String?; let driverName: String?
 }
 
-struct IntentsResponse: Codable { let intents: [ServerIntent] }
+struct ServerPeerLocation: Codable {
+    let userId: String; let userName: String
+    let lat: Double; let lon: Double; let name: String?
+    let destLat: Double?; let destLon: Double?; let destName: String?
+}
+
+struct IntentsResponse: Codable { let intents: [ServerIntent]; let peers: [ServerPeerLocation]? }
 struct MatchesResponse: Codable { let matches: [ServerMatch] }
+
+struct SearchResult {
+    let intents: [ServerIntent]
+    let peers: [PeerLocation]
+
+    static let empty = SearchResult(intents: [], peers: [])
+}
 
 // MARK: - API client
 
@@ -43,10 +57,10 @@ final class ApiClient {
 
     // ── helpers ──
 
-    private func post<T: Decodable>(_ path: String, _ body: [String: Any]) async throws -> T {
+    private func post<T: Decodable>(_ path: String, _ body: Encodable) async throws -> T {
         var r = URLRequest(url: URL(string: "\(baseURL)\(path)")!); r.httpMethod = "POST"
         r.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        r.httpBody = try JSONSerialization.data(withJSONObject: body)
+        r.httpBody = try JSONEncoder().encode(body)
         let (d, _) = try await URLSession.shared.data(for: r)
         return try JSONDecoder().decode(T.self, from: d)
     }
@@ -60,45 +74,58 @@ final class ApiClient {
 
     func register(name: String, phone: String, gender: String, idType: String, idLast4: String,
                   emergencyName: String, emergencyPhone: String) async throws -> ServerUser {
-        let u: ServerUser = try await post("/api/register", [
-            "name": name, "phone": phone, "gender": gender,
-            "idType": idType, "idLast4": idLast4,
-            "emergencyName": emergencyName, "emergencyPhone": emergencyPhone,
-        ])
+        let u: ServerUser = try await post("/api/register", RegisterBody(
+            name: name, phone: phone, gender: gender,
+            idType: idType, idLast4: idLast4,
+            emergencyName: emergencyName, emergencyPhone: emergencyPhone))
         userId = u.userId
         return u
     }
 
     func verifyPhone(otp: String) async throws -> ServerUser {
-        try await post("/api/verify", ["userId": userId!, "type": "phone", "otp": otp])
+        try await post("/api/verify", VerifyBody(userId: userId!, type: "phone", otp: otp, idLast4: nil))
     }
 
     func verifyId(idLast4: String) async throws -> ServerUser {
-        try await post("/api/verify", ["userId": userId!, "type": "id", "idLast4": idLast4])
+        try await post("/api/verify", VerifyBody(userId: userId!, type: "id", otp: nil, idLast4: idLast4))
     }
 
     func upsertIntent(origin: Place, dest: Place, comfortKm: Double, isOpen: Bool) async throws -> [ServerIntent] {
         struct R: Decodable { let compatible: [ServerIntent] }
-        let r: R = try await post("/api/intent", [
-            "userId": userId!,
-            "origin": ["lat": origin.lat, "lon": origin.lon, "name": origin.name],
-            "dest": ["lat": dest.lat, "lon": dest.lon, "name": dest.name],
-            "comfortRadiusKm": comfortKm, "isOpen": isOpen,
-        ])
+        let r: R = try await post("/api/intent", IntentBody(
+            userId: userId!,
+            origin: ServerCoord(lat: origin.lat, lon: origin.lon, name: origin.name),
+            dest: ServerCoord(lat: dest.lat, lon: dest.lon, name: dest.name),
+            comfortRadiusKm: comfortKm, isOpen: isOpen))
         return r.compatible
     }
 
+    func updateLocation(lat: Double, lon: Double, name: String) async throws {
+        struct Empty: Decodable {}
+        let _: Empty = try await post("/api/location", LocationBody(
+            userId: userId!, lat: lat, lon: lon, name: name))
+    }
+
     func searchIntents(origin: Place, dest: Place, comfortKm: Double,
-                       verifiedOnly: Bool, sameGender: Bool) async throws -> [ServerIntent] {
+                       verifiedOnly: Bool, sameGender: Bool) async throws -> SearchResult {
         let r: IntentsResponse = try await get(
             "/api/intents?userId=\(userId!)&lat=\(origin.lat)&lon=\(origin.lon)" +
             "&destLat=\(dest.lat)&destLon=\(dest.lon)&comfortKm=\(comfortKm)" +
             "&verifiedOnly=\(verifiedOnly)&sameGender=\(sameGender)")
-        return r.intents
+        return SearchResult(
+            intents: r.intents,
+            peers: (r.peers ?? []).map { p in
+                PeerLocation(
+                    id: p.userId, name: p.userName,
+                    coord: CLLocationCoordinate2D(latitude: p.lat, longitude: p.lon),
+                    destination: p.destLat != nil
+                        ? Place(id: p.destName ?? "", name: p.destName ?? "", lat: p.destLat!, lon: p.destLon!)
+                        : nil)
+            })
     }
 
     func requestMatch(toIntentId: String) async throws -> ServerMatch {
-        try await post("/api/match/request", ["fromUserId": userId!, "toIntentId": toIntentId])
+        try await post("/api/match/request", MatchRequestBody(fromUserId: userId!, toIntentId: toIntentId))
     }
 
     func pendingMatches() async throws -> [ServerMatch] {
@@ -107,7 +134,7 @@ final class ApiClient {
     }
 
     func respondToMatch(matchId: String, accept: Bool) async throws -> ServerMatch {
-        try await post("/api/match/respond", ["matchId": matchId, "userId": userId!, "accept": accept])
+        try await post("/api/match/respond", MatchRespondBody(matchId: matchId, userId: userId!, accept: accept))
     }
 
     // ── bridge helpers ──
@@ -129,4 +156,33 @@ final class ApiClient {
             isOpen: si.isOpen,
             openUntil: Date().addingTimeInterval(3600))
     }
+}
+
+// MARK: - Request body structs (Codable)
+
+private struct RegisterBody: Encodable {
+    let name: String; let phone: String; let gender: String
+    let idType: String; let idLast4: String
+    let emergencyName: String; let emergencyPhone: String
+}
+
+private struct VerifyBody: Encodable {
+    let userId: String; let type: String; let otp: String?; let idLast4: String?
+}
+
+private struct IntentBody: Encodable {
+    let userId: String; let origin: ServerCoord; let dest: ServerCoord
+    let comfortRadiusKm: Double; let isOpen: Bool
+}
+
+private struct LocationBody: Encodable {
+    let userId: String; let lat: Double; let lon: Double; let name: String
+}
+
+private struct MatchRequestBody: Encodable {
+    let fromUserId: String; let toIntentId: String
+}
+
+private struct MatchRespondBody: Encodable {
+    let matchId: String; let userId: String; let accept: Bool
 }

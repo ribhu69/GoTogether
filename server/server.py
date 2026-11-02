@@ -8,6 +8,10 @@ Run:  python3 server.py          # listens on 0.0.0.0:8080
 iOS Simulator → http://localhost:8080
 Android Emulator → http://10.0.2.2:8080
 Real devices → http://<mac-local-ip>:8080
+
+Two devices on the same WiFi can discover each other in real time through
+the /api/location endpoint (updated every few seconds by each client) and
+the /api/intents endpoint (which now returns peer locations too).
 """
 import json, time, math, uuid, sys, socket
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -29,6 +33,7 @@ def local_ip() -> str:
 users: dict[str, dict] = {}        # userId → profile
 intents: dict[str, dict] = {}      # intentId → intent (keyed by userId, overwritten)
 matches: dict[str, dict] = {}      # matchId → match state
+locations: dict[str, dict] = {}    # userId → {lat, lon, name, destLat, destLon, destName, ts}
 
 # ── geo ──────────────────────────────────────────────────────────
 def haversine_km(a: dict, b: dict) -> float:
@@ -56,6 +61,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/health":          self.health()
         elif path == "/api/intents":       self.search_intents(qs)
         elif path == "/api/match/pending": self.pending_matches(qs)
+        elif path == "/api/locations":     self.get_locations(qs)
         else: self._respond(*err("not found", 404))
 
     def do_POST(self):
@@ -64,6 +70,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/register":       self.register(body)
         elif path == "/api/verify":       self.verify(body)
         elif path == "/api/intent":       self.upsert_intent(body)
+        elif path == "/api/location":     self.update_location(body)
         elif path == "/api/match/request": self.request_match(body)
         elif path == "/api/match/respond": self.respond_match(body)
         else: self._respond(*err("not found", 404))
@@ -81,7 +88,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def health(self):
         self._respond(*ok({"status": "ok", "users": len(users), "intents": len(intents),
-                           "matches": len(matches), "ts": time.time()}))
+                           "matches": len(matches), "locations": len(locations), "ts": time.time()}))
 
     # ── endpoints ────────────────────────────────────────────────
 
@@ -126,7 +133,6 @@ class Handler(BaseHTTPRequestHandler):
             "updatedAt": time.time(),
         }
         intents[iid] = i
-        # Return compatible intents so the client can show "who'd be notified"
         compat = self._find_compatible(i)
         self._respond(*ok({"intent": i, "compatible": compat}))
 
@@ -160,7 +166,53 @@ class Handler(BaseHTTPRequestHandler):
             results.append({**i, "originGapKm": round(origin_gap, 3), "destGapKm": round(dest_gap, 3)})
 
         results.sort(key=lambda x: x["destGapKm"])
-        self._respond(*ok({"intents": results}))
+
+        # Include peer locations (everyone except self, fresh within 30s)
+        now = time.time()
+        peers = []
+        for lid, loc in locations.items():
+            if lid == uid: continue
+            if now - loc.get("ts", 0) > 30: continue  # stale
+            peers.append({
+                "userId": lid,
+                "userName": users.get(lid, {}).get("name", lid),
+                "lat": loc["lat"], "lon": loc["lon"],
+                "name": loc.get("name"),
+                "destLat": loc.get("destLat"), "destLon": loc.get("destLon"),
+                "destName": loc.get("destName"),
+            })
+
+        self._respond(*ok({"intents": results, "peers": peers}))
+
+    def update_location(self, b):
+        uid = b.get("userId", "")
+        if not uid: return self._respond(*err("missing userId"))
+        locations[uid] = {
+            "lat": b["lat"], "lon": b["lon"],
+            "name": b.get("name", ""),
+            "destLat": b.get("destLat"), "destLon": b.get("destLon"),
+            "destName": b.get("destName"),
+            "ts": time.time(),
+        }
+        # Also update the user's intent origin so matching uses live location.
+        if uid in intents:
+            intents[uid]["origin"] = {"lat": b["lat"], "lon": b["lon"], "name": b.get("name", "")}
+        self._respond(*ok({"ok": True}))
+
+    def get_locations(self, qs):
+        uid = qs.get("userId", [""])[0]
+        now = time.time()
+        peers = []
+        for lid, loc in locations.items():
+            if lid == uid: continue
+            if now - loc.get("ts", 0) > 30: continue
+            peers.append({
+                "userId": lid,
+                "userName": users.get(lid, {}).get("name", lid),
+                "lat": loc["lat"], "lon": loc["lon"],
+                "name": loc.get("name"),
+            })
+        self._respond(*ok({"peers": peers}))
 
     def request_match(self, b):
         from_uid = b.get("fromUserId")
