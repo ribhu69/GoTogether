@@ -59,7 +59,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         qs = parse_qs(urlparse(self.path).query)
-        if path == "/api/health":          self.health()
+        if path == "/" or path == "/dashboard": self.dashboard()
+        elif path == "/api/health":          self.health()
         elif path == "/api/intents":       self.search_intents(qs)
         elif path == "/api/match/pending": self.pending_matches(qs)
         elif path == "/api/locations":     self.get_locations(qs)
@@ -93,6 +94,59 @@ class Handler(BaseHTTPRequestHandler):
     def health(self):
         self._respond(*ok({"status": "ok", "users": len(users), "intents": len(intents),
                            "matches": len(matches), "locations": len(locations), "ts": time.time()}))
+
+    def dashboard(self):
+        body = self._dashboard_html()
+        self._respond(200, body.encode(), "text/html")
+
+    def _dashboard_html(self) -> str:
+        now = time.time()
+        rows = []
+        for uid, u in users.items():
+            loc = locations.get(uid, {})
+            intent = intents.get(uid, {})
+            loc_age = round(now - loc["ts"], 1) if loc else None
+            fresh = loc_age is not None and loc_age <= 30
+            rows.append(f"""<tr>
+                <td>{u['name']}</td>
+                <td style="color:{'green' if u['phoneVerified'] else 'red'}">{'✓' if u['phoneVerified'] else '✗'}</td>
+                <td>{intent.get('dest',{}).get('name','—') if intent else '—'}</td>
+                <td style="color:{'green' if intent and intent['isOpen'] else '#999'}">{'Open' if intent and intent['isOpen'] else 'Closed'}</td>
+                <td style="color:{'green' if fresh else 'orange'}">{f'{loc_age}s' if loc_age is not None else '—'}</td>
+                <td style="font-family:monospace;font-size:11px">{uid[:8]}</td>
+            </tr>""")
+        return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GoTogether Dashboard</title>
+<style>
+  body{{font-family:-apple-system,sans-serif;margin:20px;background:#f5f5f5}}
+  h1{{margin:0 0 4px}} .sub{{color:#666;margin:0 0 16px}}
+  .cards{{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}}
+  .card{{background:#fff;border-radius:10px;padding:16px;min-width:100px;text-align:center;box-shadow:0 1px 3px #0001}}
+  .card .num{{font-size:28px;font-weight:700}}
+  .card .label{{font-size:12px;color:#888;text-transform:uppercase;margin-top:4px}}
+  table{{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px #0001}}
+  th,td{{padding:10px 14px;text-align:left;font-size:14px}}
+  th{{background:#f0f0f0;font-weight:600;color:#555;text-transform:uppercase;font-size:11px}}
+  tr:not(:last-child) td{{border-bottom:1px solid #eee}}
+  .badge{{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}}
+  .badge.green{{background:#e8f5e9;color:#2e7d32}} .badge.red{{background:#fce4ec;color:#c62828}} .badge.orange{{background:#fff3e0;color:#e65100}}
+  @media(prefers-color-scheme:dark){{body{{background:#1a1a2e;color:#eee}} .card{{background:#16213e}} th{{background:#0f3460;color:#aaa}} td{{color:#ddd}} tr:not(:last-child) td{{border-color:#333}}}}
+</style></head>
+<body>
+<h1>🚕 GoTogether</h1><p class="sub">Dashboard · auto-refresh 3s · {now:.0f}</p>
+<div class="cards">
+<div class="card"><div class="num">{len(users)}</div><div class="label">Users</div></div>
+<div class="card"><div class="num">{len([i for i in intents.values() if i['isOpen']])}</div><div class="label">Open</div></div>
+<div class="card"><div class="num">{len(locations)}</div><div class="label">Locations</div></div>
+<div class="card"><div class="num">{len(messages)}</div><div class="label">Chats</div></div>
+<div class="card"><div class="num">{len(matches)}</div><div class="label">Matches</div></div>
+</div>
+<table><tr><th>Name</th><th>Phone</th><th>Dest</th><th>Intent</th><th>GPS</th><th>ID</th></tr>
+{''.join(rows) if rows else '<tr><td colspan="6" style="color:#999;text-align:center;padding:30px">No users registered yet</td></tr>'}
+</table>
+<script>setTimeout(()=>location.reload(),3000)</script>
+</body></html>"""
 
     def me(self, qs):
         """Return this user's server-side state — profile, intent, location freshness."""

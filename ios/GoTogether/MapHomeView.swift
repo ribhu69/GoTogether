@@ -168,6 +168,9 @@ struct MapHomeView: View {
             TextField("Search destination…", text: $searchText)
                 .textFieldStyle(.plain)
                 .onTapGesture { isSearching = true }
+            if isSearching && searchText.count >= 2 && searchResults.isEmpty {
+                ProgressView().scaleEffect(0.7)
+            }
             if isSearching {
                 Button { closeSearch() } label: {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
@@ -267,7 +270,6 @@ struct MapHomeView: View {
             }
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
         }
-        .frame(maxHeight: 300)
         .shadow(radius: 2)
     }
 
@@ -391,7 +393,6 @@ struct MapHomeView: View {
             }
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
         }
-        .frame(maxHeight: 320)
         .shadow(radius: 2)
     }
 
