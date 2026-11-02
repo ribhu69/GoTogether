@@ -69,18 +69,29 @@ final class ApiClient {
         userId = UserDefaults.standard.string(forKey: "apiUserId")
     }
 
+    /// URLSession with a short timeout — we're talking to a local server, not the internet.
+    private var session: URLSession {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 3
+        config.timeoutIntervalForResource = 5
+        return URLSession(configuration: config)
+    }
+
     // ── helpers ──
 
     private func post<T: Decodable>(_ path: String, _ body: Encodable) async throws -> T {
         var r = URLRequest(url: URL(string: "\(baseURL)\(path)")!); r.httpMethod = "POST"
         r.setValue("application/json", forHTTPHeaderField: "Content-Type")
         r.httpBody = try JSONEncoder().encode(body)
-        let (d, _) = try await URLSession.shared.data(for: r)
+        r.timeoutInterval = 3
+        let (d, _) = try await session.data(for: r)
         return try JSONDecoder().decode(T.self, from: d)
     }
 
     private func get<T: Decodable>(_ path: String) async throws -> T {
-        let (d, _) = try await URLSession.shared.data(from: URL(string: "\(baseURL)\(path)")!)
+        var r = URLRequest(url: URL(string: "\(baseURL)\(path)")!)
+        r.timeoutInterval = 3
+        let (d, _) = try await session.data(for: r)
         return try JSONDecoder().decode(T.self, from: d)
     }
 

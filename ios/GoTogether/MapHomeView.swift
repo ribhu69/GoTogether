@@ -143,6 +143,9 @@ struct MapHomeView: View {
         .onChange(of: app.myComfortKm) { _, _ in app.syncIntent() }
         .onChange(of: app.iAmOpen) { _, _ in app.syncIntent() }
         .onChange(of: app.myDest) { _, _ in app.syncIntent() }
+        .onChange(of: app.hasDestination) { _, now in
+            if now { app.refreshIntents() }  // immediate fetch when destination picked
+        }
         .task {
             // Polling loop: refresh intents + peer locations + messages every 3 seconds
             while !Task.isCancelled {

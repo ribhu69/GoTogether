@@ -44,6 +44,13 @@ struct SafetyView: View {
             .adaptiveWidth()
             .navigationTitle("Safety")
             .onAppear { app.fetchServerStatus() }
+            .task {
+                // Poll server status every 5s while tab is open
+                while !Task.isCancelled {
+                    app.fetchServerStatus()
+                    try? await Task.sleep(for: .seconds(5))
+                }
+            }
             .confirmationDialog("Reset profile?", isPresented: $showResetConfirm, titleVisibility: .visible) {
                 Button("Reset", role: .destructive) {
                     app.resetProfile()
@@ -74,39 +81,51 @@ struct SafetyView: View {
                     .disabled(app.name.isEmpty || app.phone.isEmpty)
                 }
             } else if let me = app.serverMe {
-                statusRow("Connection", value: app.serverReachable ? "Live" : "Unreachable",
-                          color: app.serverReachable ? .green : .red)
-                statusRow("User ID", value: String(me.userId.prefix(12)))
-                if let age = me.locationAgeSec {
-                    statusRow("Location", value: age < 30 ? "Fresh (\(Int(age))s ago)" : "Stale (\(Int(age))s ago)",
-                              color: age < 30 ? .green : .orange)
-                } else {
-                    statusRow("Location", value: "Not sent yet", color: .secondary)
-                }
-                statusRow("Intent", value: me.hasIntent ? (me.intentOpen ? "Open" : "Closed") : "Not set",
-                          color: me.intentOpen ? .green : .secondary)
-                if let dest = me.intentDest {
-                    statusRow("Destination", value: dest)
-                }
-                if let comfort = me.comfortRadiusKm {
-                    statusRow("Comfort", value: "\(Int(comfort)) km")
-                }
-                statusRow("Server time", value: Date(timeIntervalSince1970: me.serverTs).formatted(date: .omitted, time: .shortened))
-
-                if !app.serverReachable {
-                    Button {
-                        app.reconnectToServer()
-                    } label: {
-                        Label("Retry connection", systemImage: "arrow.clockwise")
-                            .font(.subheadline.weight(.medium))
-                    }
-                    .buttonStyle(.bordered)
-                }
-            } else {
+                // Show cached status immediately, refetch in background
+                serverStatusRows(me)
+            } else if app.isConnected {
+                // First fetch — show spinner
                 HStack {
                     ProgressView().scaleEffect(0.7)
                     Text("Fetching server status…").font(.subheadline).foregroundStyle(.secondary)
                 }
+            }
+
+            if !app.isConnected {
+                EmptyView()
+            }
+        }
+    }
+
+    private func serverStatusRows(_ me: ServerMeStatus) -> some View {
+        Group {
+            statusRow("Connection", value: app.serverReachable ? "Live" : "Unreachable",
+                      color: app.serverReachable ? .green : .red)
+            statusRow("User ID", value: String(me.userId.prefix(12)))
+            if let age = me.locationAgeSec {
+                statusRow("Location", value: age < 30 ? "Fresh (\(Int(age))s ago)" : "Stale (\(Int(age))s ago)",
+                          color: age < 30 ? .green : .orange)
+            } else {
+                statusRow("Location", value: "Not sent yet", color: .secondary)
+            }
+            statusRow("Intent", value: me.hasIntent ? (me.intentOpen ? "Open" : "Closed") : "Not set",
+                      color: me.intentOpen ? .green : .secondary)
+            if let dest = me.intentDest {
+                statusRow("Destination", value: dest)
+            }
+            if let comfort = me.comfortRadiusKm {
+                statusRow("Comfort", value: "\(Int(comfort)) km")
+            }
+            statusRow("Server time", value: Date(timeIntervalSince1970: me.serverTs).formatted(date: .omitted, time: .shortened))
+
+            if !app.serverReachable {
+                Button {
+                    app.reconnectToServer()
+                } label: {
+                    Label("Retry connection", systemImage: "arrow.clockwise")
+                        .font(.subheadline.weight(.medium))
+                }
+                .buttonStyle(.bordered)
             }
         }
     }
