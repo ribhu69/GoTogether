@@ -13,10 +13,19 @@ SERVER_PORT="${SERVER_PORT:-8080}"
 SERVER_URL="http://localhost:$SERVER_PORT"
 
 # ── Device UDIDs (from devices.local — gitignored, never committed) ──
+DEVELOPMENT_TEAM=""
 IPHONE_UDID=""
 IPAD_UDID=""
 if [ -f "$SCRIPT_DIR/devices.local" ]; then
     source "$SCRIPT_DIR/devices.local"
+fi
+
+# Build signing flags for real devices
+SIGN_FLAGS=""
+if [ -n "$DEVELOPMENT_TEAM" ]; then
+    SIGN_FLAGS="DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM"
+else
+    SIGN_FLAGS="-allowProvisioningUpdates"
 fi
 
 cleanup() {
@@ -63,12 +72,12 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 cd "$PROJECT_DIR/ios"
 xcodegen generate --quiet 2>&1
 
-echo "  Building GoTogether..."
+echo "  Building GoTogether (simulator, no signing)..."
 xcodebuild -project GoTogether.xcodeproj -scheme GoTogether \
     -configuration Debug \
-    -sdk iphoneos \
-    -destination 'generic/platform=iOS' \
-    build 2>&1 | grep -E '(BUILD|error:|warning:)' | tail -5
+    -sdk iphonesimulator \
+    -destination 'platform=iOS Simulator,name=iPhone 17' \
+    build 2>&1 | grep -E '(BUILD|error:)' | tail -5
 
 # ══════════════════════════════════════════════════════════
 # 3. Install on devices or open simulators
@@ -80,7 +89,7 @@ if [ -n "$IPHONE_UDID" ]; then
     echo "━━━ Installing on iPhone ($IPHONE_UDID) ━━━"
     xcodebuild -project GoTogether.xcodeproj -scheme GoTogether \
         -destination "platform=iOS,id=$IPHONE_UDID" \
-        -configuration Debug \
+        -configuration Debug $SIGN_FLAGS \
         build 2>&1 | grep -E '(BUILD|error:)' | tail -5
     INSTALLED=1
 fi
@@ -89,7 +98,7 @@ if [ -n "$IPAD_UDID" ]; then
     echo "━━━ Installing on iPad ($IPAD_UDID) ━━━"
     xcodebuild -project GoTogether.xcodeproj -scheme GoTogether \
         -destination "platform=iOS,id=$IPAD_UDID" \
-        -configuration Debug \
+        -configuration Debug $SIGN_FLAGS \
         build 2>&1 | grep -E '(BUILD|error:)' | tail -5
     INSTALLED=1
 fi
