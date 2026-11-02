@@ -141,10 +141,9 @@ struct MapHomeView: View {
         .onChange(of: app.search.sameGenderOnly) { _, _ in app.refreshIntents() }
         .onChange(of: searchText) { _, newValue in performSearch(newValue) }
         .onChange(of: app.myComfortKm) { _, _ in app.syncIntent() }
-        .onChange(of: app.iAmOpen) { _, _ in app.syncIntent() }
         .onChange(of: app.myDest) { _, _ in app.syncIntent() }
         .onChange(of: app.hasDestination) { _, now in
-            if now { app.refreshIntents() }  // immediate fetch when destination picked
+            if now { app.refreshIntents() }
         }
         .task {
             // Polling loop: refresh intents + peer locations + messages every 3 seconds
@@ -328,10 +327,7 @@ struct MapHomeView: View {
         if n > 0 {
             return "Comfort: \(Int(app.myComfortKm)) km · \(n) compatible nearby"
         }
-        if app.iAmOpen {
-            return "No compatible travelers — try widening comfort range"
-        }
-        return "Toggle 'Open' so others can find you"
+        return "No compatible travelers — try widening comfort range"
     }
 
     private var quickDestinations: some View {
@@ -454,11 +450,6 @@ struct MapHomeView: View {
                     }
                     .tint(.orange)
                 }
-
-                Toggle(isOn: $app.iAmOpen) {
-                    Text("Open").font(.caption).bold()
-                }
-                .toggleStyle(.button).tint(app.iAmOpen ? .green : .gray)
 
                 Button { showSheet = true } label: {
                     Image(systemName: "slider.horizontal.3").font(.title3)
@@ -698,7 +689,7 @@ struct MapHomeView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Label("No matches yet", systemImage: "person.2.slash")
                                     .foregroundStyle(.secondary)
-                                Text("Toggle 'Open' so others can find you. When someone nearby goes Open, they'll appear here.")
+                                Text("Pick a destination — you'll automatically be visible. When someone nearby picks theirs, they'll appear here.")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                         }
@@ -725,15 +716,15 @@ struct MapHomeView: View {
                 if app.isRefreshing {
                     VStack(spacing: 16) {
                         ProgressView()
-                        Text("Scanning for open travelers…")
+                        Text("Scanning for travelers…")
                             .font(.subheadline).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     ContentUnavailableView(
-                        "No open travelers nearby",
+                        "No travelers nearby",
                         systemImage: "person.2.slash",
-                        description: Text("Toggle 'Open' so others can find you, or wait for someone nearby to go Open.")
+                        description: Text("Pick a destination to become visible. When someone nearby picks theirs, they'll show up here.")
                     )
                 }
             } else {

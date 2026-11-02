@@ -29,8 +29,8 @@ final class AppState {
     var myOrigin: Place = Place.defaultOrigin
     var myDest: Place = Place.defaultOrigin  // same as origin until user picks
     var myComfortKm: Double = 5
-    var iAmOpen = false
-    var hasDestination = false  // true only after user explicitly picks a destination
+    var hasDestination = false  // true after user explicitly picks a destination
+    var iAmOpen: Bool { hasDestination }  // always Open when you have a destination
 
     // Search history (latest first)
     var recentSearches: [Place] {
@@ -136,7 +136,6 @@ final class AppState {
         api.userId = nil
         serverIntents = []; serverCompatible = []; serverPending = []
         peerLocations = []
-        iAmOpen = false
     }
 
     // ── Origin tracking ──

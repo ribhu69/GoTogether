@@ -136,29 +136,31 @@ class Handler(BaseHTTPRequestHandler):
             fresh = loc_age is not None and loc_age <= 30
             rows.append(f"""<tr>
                 <td>{u['name']}</td>
-                <td style="color:{'green' if u['phoneVerified'] else 'red'}">{'✓' if u['phoneVerified'] else '✗'}</td>
+                <td class="{'green' if u['phoneVerified'] else 'red'}">{'✓' if u['phoneVerified'] else '✗'}</td>
                 <td>{intent.get('dest',{}).get('name','—') if intent else '—'}</td>
-                <td style="color:{'green' if intent and intent['isOpen'] else '#999'}">{'Open' if intent and intent['isOpen'] else 'Closed'}</td>
-                <td style="color:{'green' if fresh else 'orange'}">{f'{loc_age}s' if loc_age is not None else '—'}</td>
-                <td style="font-family:monospace;font-size:11px">{uid[:8]}</td>
+                <td class="{'green' if intent and intent['isOpen'] else ''}">{'Open' if intent and intent['isOpen'] else 'Closed'}</td>
+                <td class="{'green' if fresh else 'orange'}">{f'{loc_age}s' if loc_age is not None else '—'}</td>
+                <td class="mono">{uid[:8]}</td>
             </tr>""")
         return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GoTogether Dashboard</title>
 <style>
-  body{{font-family:-apple-system,sans-serif;margin:20px;background:#f5f5f5}}
-  h1{{margin:0 0 4px}} .sub{{color:#666;margin:0 0 16px}}
-  .cards{{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}}
-  .card{{background:#fff;border-radius:10px;padding:16px;min-width:100px;text-align:center;box-shadow:0 1px 3px #0001}}
-  .card .num{{font-size:28px;font-weight:700}}
-  .card .label{{font-size:12px;color:#888;text-transform:uppercase;margin-top:4px}}
-  table{{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px #0001}}
-  th,td{{padding:10px 14px;text-align:left;font-size:14px}}
-  th{{background:#f0f0f0;font-weight:600;color:#555;text-transform:uppercase;font-size:11px}}
-  tr:not(:last-child) td{{border-bottom:1px solid #eee}}
-  .badge{{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}}
-  .badge.green{{background:#e8f5e9;color:#2e7d32}} .badge.red{{background:#fce4ec;color:#c62828}} .badge.orange{{background:#fff3e0;color:#e65100}}
-  @media(prefers-color-scheme:dark){{body{{background:#1a1a2e;color:#eee}} .card{{background:#16213e}} th{{background:#0f3460;color:#aaa}} td{{color:#ddd}} tr:not(:last-child) td{{border-color:#333}}}}
+  *{box-sizing:border-box} body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:20px;background:#f0f2f5;color:#1a1a2e}
+  h1{margin:0 0 4px;font-size:24px} .sub{color:#666;margin:0 0 20px;font-size:13px}
+  .cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px}
+  .card{background:#fff;border-radius:12px;padding:18px 24px;min-width:110px;text-align:center;box-shadow:0 2px 8px #0000000d}
+  .card .num{font-size:32px;font-weight:700;color:#1a1a2e}
+  .card .label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-top:4px}
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px #0000000d}
+  th,td{padding:12px 16px;text-align:left;font-size:13px}
+  th{background:#f7f8fa;font-weight:600;color:#555;text-transform:uppercase;font-size:11px;letter-spacing:.3px}
+  tr:not(:last-child) td{border-bottom:1px solid #f0f0f0}
+  td{color:#333;font-weight:450}
+  td:first-child{font-weight:600;color:#1a1a2e}
+  .green{color:#2e7d32!important;font-weight:600} .red{color:#c62828!important} .orange{color:#e65100!important}
+  .mono{font-family:'SF Mono',Monaco,monospace;font-size:11px;color:#888}
+  @media(prefers-color-scheme:dark){body{background:#0f0f1a;color:#e0e0e0} .card,.table{background:#1a1a2e} th{background:#16213e;color:#aaa} td{color:#ccc} td:first-child{color:#e0e0e0} tr:not(:last-child) td{border-color:#2a2a3e} .sub{color:#999}}
 </style></head>
 <body>
 <h1>🚕 GoTogether</h1><p class="sub">Dashboard · auto-refresh 3s · {now:.0f}</p>
