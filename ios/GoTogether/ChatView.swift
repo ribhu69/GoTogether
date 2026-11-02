@@ -56,7 +56,7 @@ struct ChatView: View {
             // Poll messages every 2 seconds while this view is visible
             pollTimer = Task {
                 while !Task.isCancelled {
-                    app.pollChat()
+                    app.fetchChatMessages(for: app.activeChatPeerId)
                     try? await Task.sleep(for: .seconds(2))
                 }
             }

@@ -314,43 +314,29 @@ final class AppState {
 
     func openChat(with peerId: String) {
         ChatMessage.myUserId = api.userId ?? ""
+        // Clear only when switching to a different peer
+        if activeChatPeerId != peerId { chatMessages = [] }
         activeChatPeerId = peerId
-        chatMessages = []
         unreadChats.remove(peerId)
         if lastChatPoll[peerId] == nil { lastChatPoll[peerId] = 0 }
-        pollChat()
+        fetchChatMessages(for: peerId)
     }
 
     func closeChat() {
         activeChatPeerId = ""
-        chatMessages = []
     }
 
-    func sendChatMessage(_ text: String) {
-        guard isConnected, !activeChatPeerId.isEmpty else { return }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        Task {
-            guard let sm = try? await api.sendMessage(toUserId: activeChatPeerId, text: trimmed) else { return }
-            await MainActor.run {
-                let msg = ChatMessage(fromUserId: sm.fromUserId, toUserId: sm.toUserId,
-                                      text: sm.text, ts: sm.ts)
-                chatMessages.append(msg)
-                lastChatPoll[activeChatPeerId] = sm.ts
-            }
-        }
-    }
-
-    func pollChat() {
-        guard isConnected, !activeChatPeerId.isEmpty else { return }
+    /// Fetch messages from server for a peer. Appends new ones, skips duplicates.
+    func fetchChatMessages(for peerId: String) {
+        guard isConnected else { return }
         ChatMessage.myUserId = api.userId ?? ""
-        let since = lastChatPoll[activeChatPeerId] ?? 0
+        let since = lastChatPoll[peerId] ?? 0
         Task {
-            let msgs: [ServerChatMessage] = (try? await api.fetchMessages(
-                peerId: activeChatPeerId, since: since)) ?? []
-            guard !msgs.isEmpty else { return }
+            let serverMsgs: [ServerChatMessage] = (try? await api.fetchMessages(
+                peerId: peerId, since: since)) ?? []
+            guard !serverMsgs.isEmpty else { return }
             await MainActor.run {
-                for sm in msgs {
+                for sm in serverMsgs {
                     let msg = ChatMessage(fromUserId: sm.fromUserId, toUserId: sm.toUserId,
                                           text: sm.text, ts: sm.ts)
                     if !chatMessages.contains(where: { $0.ts == msg.ts && $0.fromUserId == msg.fromUserId }) {
@@ -358,7 +344,36 @@ final class AppState {
                     }
                 }
                 chatMessages.sort { $0.ts < $1.ts }
-                if let latest = msgs.last { lastChatPoll[activeChatPeerId] = latest.ts }
+                if let latest = serverMsgs.last { lastChatPoll[peerId] = latest.ts }
+            }
+        }
+    }
+
+    func sendChatMessage(_ text: String) {
+        guard isConnected, !activeChatPeerId.isEmpty else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let peerId = activeChatPeerId
+        ChatMessage.myUserId = api.userId ?? ""
+        let myId = api.userId ?? ""
+
+        // 1. Show locally immediately (optimistic)
+        let now = Date().timeIntervalSince1970
+        let local = ChatMessage(fromUserId: myId, toUserId: peerId, text: trimmed, ts: now)
+        chatMessages.append(local)
+
+        // 2. Send to server in background; update with real ts on success
+        Task {
+            if let sm = try? await api.sendMessage(toUserId: peerId, text: trimmed) {
+                await MainActor.run {
+                    // Replace local with server-confirmed (real ts)
+                    chatMessages.removeAll { $0.ts == now && $0.fromUserId == myId }
+                    let confirmed = ChatMessage(fromUserId: sm.fromUserId, toUserId: sm.toUserId,
+                                                text: sm.text, ts: sm.ts)
+                    chatMessages.append(confirmed)
+                    chatMessages.sort { $0.ts < $1.ts }
+                    lastChatPoll[peerId] = sm.ts
+                }
             }
         }
     }
