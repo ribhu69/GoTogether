@@ -58,8 +58,13 @@ struct MapHomeView: View {
                 ForEach(app.peerLocations) { peer in
                     Annotation(peer.name, coordinate: peer.coord) {
                         VStack(spacing: 2) {
-                            Image(systemName: "person.circle.fill")
-                                .font(.title2).foregroundStyle(.green)
+                            ZStack(alignment: .topTrailing) {
+                                Image(systemName: "person.circle.fill")
+                                    .font(.title2).foregroundStyle(.green)
+                                if app.unreadChats.contains(peer.id) {
+                                    Circle().fill(.red).frame(width: 8, height: 8)
+                                }
+                            }
                             Text(peer.name.components(separatedBy: " ").first ?? peer.name)
                                 .font(.system(size: 9, weight: .medium))
                                 .padding(.horizontal, 4).padding(.vertical, 2)
@@ -135,11 +140,12 @@ struct MapHomeView: View {
         .onChange(of: app.iAmOpen) { _, _ in app.syncIntent() }
         .onChange(of: app.myDest) { _, _ in app.syncIntent() }
         .task {
-            // Polling loop: refresh intents + peer locations every 3 seconds
+            // Polling loop: refresh intents + peer locations + messages every 3 seconds
             while !Task.isCancelled {
                 app.pollPending()
                 app.refreshIntents()
                 app.syncLocation()
+                app.pollMessagesFromPeers()
                 try? await Task.sleep(for: .seconds(3))
             }
         }
@@ -221,6 +227,7 @@ struct MapHomeView: View {
         app.myDest = Place(id: "search-\(name.hashValue)", name: name,
                            lat: c.latitude, lon: c.longitude)
         app.hasDestination = true
+        app.addRecentSearch(app.myDest)
         closeSearch()
     }
 
@@ -247,31 +254,45 @@ struct MapHomeView: View {
 
     private var quickDestinations: some View {
         @Bindable var app = app
+        let recents = app.recentSearches
         return ScrollView {
             VStack(spacing: 0) {
-                ForEach(Mock.places.filter { $0.id != "BLR" }) { place in
-                    Button {
-                        app.myDest = place
-                        app.hasDestination = true
-                        closeSearch()
-                    } label: {
-                        HStack {
-                            Image(systemName: "mappin.circle.fill")
-                                .foregroundStyle(.indigo)
-                            Text(place.name)
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            if app.myDest.id == place.id {
-                                Image(systemName: "checkmark").foregroundStyle(.blue)
-                            }
-                            Text(String(format: "%.1f km", Geo.km(app.myOrigin, place)))
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal, 12).padding(.vertical, 10)
+                if recents.isEmpty {
+                    HStack {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .foregroundStyle(.secondary)
+                        Text("Search a destination to start — recent picks appear here")
+                            .font(.subheadline).foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.plain)
-                    Divider().padding(.leading, 12)
+                    .padding(.horizontal, 12).padding(.vertical, 14)
+                } else {
+                    ForEach(recents) { place in
+                        Button {
+                            app.myDest = place
+                            app.hasDestination = true
+                            app.addRecentSearch(place)
+                            closeSearch()
+                        } label: {
+                            HStack {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .foregroundStyle(.secondary)
+                                Text(place.name)
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if app.myDest.id == place.id {
+                                    Image(systemName: "checkmark").foregroundStyle(.blue)
+                                }
+                                Text(String(format: "%.1f km", Geo.km(app.myOrigin, place)))
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 10)
+                        }
+                        .buttonStyle(.plain)
+                        if place.id != recents.last?.id {
+                            Divider().padding(.leading, 12)
+                        }
+                    }
                 }
                 if let home = app.homeAddress {
                     Divider()
@@ -461,18 +482,31 @@ struct MapHomeView: View {
 
     private var destTab: some View {
         @Bindable var app = app
+        let recents = app.recentSearches
         return Form {
-            Section("Quick destinations") {
-                ForEach(Mock.places.filter { $0.id != "BLR" }) { place in
-                    HStack {
-                        Label(place.name, systemImage: "mappin")
-                        Spacer()
-                        if app.myDest.id == place.id {
-                            Image(systemName: "checkmark").foregroundStyle(.blue)
+            if recents.isEmpty {
+                Section {
+                    Label("Search a destination above — recent picks appear here", systemImage: "clock.arrow.circlepath")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Section("Recent destinations") {
+                    ForEach(recents) { place in
+                        HStack {
+                            Label(place.name, systemImage: "clock.arrow.circlepath")
+                            Spacer()
+                            if app.myDest.id == place.id {
+                                Image(systemName: "checkmark").foregroundStyle(.blue)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            app.myDest = place
+                            app.hasDestination = true
+                            app.addRecentSearch(place)
+                            showSheet = false
                         }
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture { app.myDest = place; app.hasDestination = true; showSheet = false }
                 }
             }
             if let home = app.homeAddress {

@@ -27,10 +27,16 @@ final class AppState {
 
     // Trip intent
     var myOrigin: Place = Place.defaultOrigin
-    var myDest: Place = Mock.places.first { $0.id != "BLR" } ?? Mock.places[0]
+    var myDest: Place = Place.defaultOrigin  // same as origin until user picks
     var myComfortKm: Double = 5
     var iAmOpen = false
     var hasDestination = false  // true only after user explicitly picks a destination
+
+    // Search history (latest first)
+    var recentSearches: [Place] {
+        get { Persistence.recentSearches }
+        set { Persistence.recentSearches = newValue }
+    }
 
     // Home address
     var homeAddress: Place? {
@@ -59,7 +65,8 @@ final class AppState {
     // Chat
     var chatMessages: [ChatMessage] = []
     var activeChatPeerId: String = ""
-    var lastChatPoll: Double = 0
+    var lastChatPoll: [String: Double] = [:]   // peerId → last ts polled
+    var unreadChats: Set<String> = []           // peerIds with unread messages
 
     /// True when registered with the server.
     var isConnected: Bool { api.userId != nil }
@@ -308,8 +315,9 @@ final class AppState {
     func openChat(with peerId: String) {
         ChatMessage.myUserId = api.userId ?? ""
         activeChatPeerId = peerId
-        lastChatPoll = 0
         chatMessages = []
+        unreadChats.remove(peerId)
+        if lastChatPoll[peerId] == nil { lastChatPoll[peerId] = 0 }
         pollChat()
     }
 
@@ -328,7 +336,7 @@ final class AppState {
                 let msg = ChatMessage(fromUserId: sm.fromUserId, toUserId: sm.toUserId,
                                       text: sm.text, ts: sm.ts)
                 chatMessages.append(msg)
-                lastChatPoll = sm.ts
+                lastChatPoll[activeChatPeerId] = sm.ts
             }
         }
     }
@@ -336,9 +344,10 @@ final class AppState {
     func pollChat() {
         guard isConnected, !activeChatPeerId.isEmpty else { return }
         ChatMessage.myUserId = api.userId ?? ""
+        let since = lastChatPoll[activeChatPeerId] ?? 0
         Task {
             let msgs: [ServerChatMessage] = (try? await api.fetchMessages(
-                peerId: activeChatPeerId, since: lastChatPoll)) ?? []
+                peerId: activeChatPeerId, since: since)) ?? []
             guard !msgs.isEmpty else { return }
             await MainActor.run {
                 for sm in msgs {
@@ -349,8 +358,44 @@ final class AppState {
                     }
                 }
                 chatMessages.sort { $0.ts < $1.ts }
-                if let latest = msgs.last { lastChatPoll = latest.ts }
+                if let latest = msgs.last { lastChatPoll[activeChatPeerId] = latest.ts }
             }
         }
+    }
+
+    /// Poll every visible peer for new messages. Called from the main map loop.
+    func pollMessagesFromPeers() {
+        guard isConnected else { return }
+        ChatMessage.myUserId = api.userId ?? ""
+        for peer in peerLocations {
+            let pid = peer.id
+            // Skip the currently open chat (pollChat handles it)
+            if pid == activeChatPeerId { continue }
+            let since = lastChatPoll[pid] ?? 0
+            Task {
+                let msgs: [ServerChatMessage] = (try? await api.fetchMessages(
+                    peerId: pid, since: since)) ?? []
+                guard !msgs.isEmpty else { return }
+                await MainActor.run {
+                    // Init lastChatPoll if this is the first message from this peer
+                    if lastChatPoll[pid] == nil { lastChatPoll[pid] = 0 }
+                    if let latest = msgs.last { lastChatPoll[pid] = latest.ts }
+                    // Any message FROM this peer (not from me) = unread
+                    let hasFromPeer = msgs.contains { $0.fromUserId == pid }
+                    if hasFromPeer { unreadChats.insert(pid) }
+                }
+            }
+        }
+    }
+
+    func addRecentSearch(_ place: Place) {
+        var list = recentSearches
+        // Remove duplicate if exists
+        list.removeAll { $0.name == place.name && abs($0.lat - place.lat) < 0.0001 && abs($0.lon - place.lon) < 0.0001 }
+        // Prepend (latest first)
+        list.insert(place, at: 0)
+        // Cap at 10
+        if list.count > 10 { list = Array(list.prefix(10)) }
+        recentSearches = list
     }
 }

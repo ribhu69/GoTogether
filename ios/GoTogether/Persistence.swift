@@ -79,6 +79,23 @@ enum Persistence {
         get { defaults.string(forKey: "savedIdLast4") ?? "" }
         set { defaults.set(newValue, forKey: "savedIdLast4") }
     }
+
+    // MARK: - Recent searches
+
+    static var recentSearches: [Place] {
+        get {
+            guard let data = defaults.data(forKey: "recentSearches"),
+                  let places = try? JSONDecoder().decode([StoredPlace].self, from: data)
+            else { return [] }
+            return places.enumerated().map { i, p in
+                Place(id: "recent-\(i)-\(p.name)", name: p.name, lat: p.lat, lon: p.lon)
+            }
+        }
+        set {
+            let stored = newValue.map { StoredPlace(name: $0.name, lat: $0.lat, lon: $0.lon) }
+            defaults.set(try? JSONEncoder().encode(stored), forKey: "recentSearches")
+        }
+    }
 }
 
 private struct StoredPlace: Codable {

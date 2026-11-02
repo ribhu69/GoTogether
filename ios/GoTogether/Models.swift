@@ -49,7 +49,7 @@ struct TravelIntent: Identifiable, Hashable {
 }
 
 struct SearchQuery {
-    var destination: Place = Mock.places[0]
+    var destination: Place = Mock.airport
     var departAt: Date = Date().addingTimeInterval(15 * 60)
     var comfortRadiusKm: Double = 5
     var windowMin: Double = 30
