@@ -666,6 +666,20 @@ struct MapHomeView: View {
                                 }
                                 .buttonStyle(.borderedProminent).controlSize(.small)
                                 .disabled(app.activeTrip != nil)
+
+                                Button {
+                                    showSheet = false
+                                    if let peer = app.peerLocations.first(where: {
+                                        $0.name == i.rider.name || $0.id == i.rider.name
+                                    }) {
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                            selectedPeer = peer
+                                        }
+                                    }
+                                } label: {
+                                    Image(systemName: "bubble.left.and.bubble.right")
+                                }
+                                .buttonStyle(.bordered).controlSize(.small)
                             }
                         }
                     }
@@ -760,6 +774,19 @@ struct MapHomeView: View {
                             Button("Share") { app.requestIntent(i); showSheet = false }
                                 .buttonStyle(.borderedProminent).controlSize(.small)
                                 .disabled(app.activeTrip != nil)
+                            Button {
+                                showSheet = false
+                                if let peer = app.peerLocations.first(where: {
+                                    $0.name == i.rider.name || $0.id == i.rider.name
+                                }) {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                        selectedPeer = peer
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "bubble.left.and.bubble.right")
+                            }
+                            .buttonStyle(.bordered).controlSize(.small)
                         }
                     }
                 }
@@ -786,6 +813,19 @@ struct MapHomeView: View {
                 Section {
                     Button("Share ride") { app.requestIntent(i) }
                         .disabled(app.activeTrip != nil)
+                    Button {
+                        tappedIntent = nil  // dismiss this sheet first
+                        // Find peer in locations to open chat
+                        if let peer = app.peerLocations.first(where: {
+                            $0.name == i.rider.name || $0.id == i.rider.name
+                        }) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                selectedPeer = peer
+                            }
+                        }
+                    } label: {
+                        Label("Chat with \(i.rider.name.components(separatedBy: " ").first ?? i.rider.name)", systemImage: "bubble.left.and.bubble.right")
+                    }
                 }
                 Section {
                     Button {
