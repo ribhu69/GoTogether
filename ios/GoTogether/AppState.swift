@@ -71,6 +71,7 @@ final class AppState {
     // Server-side status (for diagnostics)
     var serverMe: ServerMeStatus?
     var serverReachable = false
+    var isReconnecting = false
 
     /// True when registered with the server.
     var isConnected: Bool { api.userId != nil }
@@ -162,21 +163,25 @@ final class AppState {
     /// Resyncs intent + location after successful registration.
     func reconnectToServer() {
         guard !name.isEmpty, !phone.isEmpty else { return }
+        isReconnecting = true
         Task {
             guard let u = try? await api.register(
                 name: name, phone: phone, gender: gender.rawValue.lowercased(),
                 idType: idType, idLast4: idLast4,
                 emergencyName: emergencyName, emergencyPhone: emergencyPhone)
             else {
-                await MainActor.run { serverReachable = false }
+                await MainActor.run {
+                    serverReachable = false
+                    isReconnecting = false
+                }
                 return
             }
             await MainActor.run {
                 phoneVerified = u.phoneVerified
                 idVerified = u.idVerified
                 serverReachable = true
+                isReconnecting = false
             }
-            // Re-sync intent + location if destination was set
             if hasDestination { syncIntent() }
             syncLocation()
             fetchServerStatus()

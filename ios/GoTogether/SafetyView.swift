@@ -71,14 +71,21 @@ struct SafetyView: View {
                     Label("Not connected — register in onboarding", systemImage: "wifi.slash")
                         .foregroundStyle(.secondary)
                     Button {
-                        Task { await app.registerWithServer() }
-                        app.fetchServerStatus()
+                        app.isReconnecting = true
+                        Task {
+                            await app.registerWithServer()
+                            await MainActor.run { app.isReconnecting = false }
+                            app.fetchServerStatus()
+                        }
                     } label: {
-                        Label("Connect to server", systemImage: "arrow.clockwise")
-                            .font(.subheadline.weight(.medium))
+                        HStack(spacing: 6) {
+                            if app.isReconnecting { ProgressView().scaleEffect(0.7) }
+                            Label("Connect to server", systemImage: "arrow.clockwise")
+                        }
+                        .font(.subheadline.weight(.medium))
                     }
                     .buttonStyle(.bordered)
-                    .disabled(app.name.isEmpty || app.phone.isEmpty)
+                    .disabled(app.name.isEmpty || app.phone.isEmpty || app.isReconnecting)
                 }
             } else if let me = app.serverMe {
                 // Show cached status immediately, refetch in background
@@ -122,10 +129,14 @@ struct SafetyView: View {
                 Button {
                     app.reconnectToServer()
                 } label: {
-                    Label("Retry connection", systemImage: "arrow.clockwise")
-                        .font(.subheadline.weight(.medium))
+                    HStack(spacing: 6) {
+                        if app.isReconnecting { ProgressView().scaleEffect(0.7) }
+                        Label("Retry connection", systemImage: "arrow.clockwise")
+                    }
+                    .font(.subheadline.weight(.medium))
                 }
                 .buttonStyle(.bordered)
+                .disabled(app.isReconnecting)
             }
         }
     }
