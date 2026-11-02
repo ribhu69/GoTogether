@@ -102,14 +102,18 @@ struct MapHomeView: View {
             .mapControls { MapUserLocationButton(); MapCompass(); MapScaleView() }
             .safeAreaInset(edge: .bottom) { bottomBar }
 
-            // Search bar
+            // Search bar + inline results
             VStack(spacing: 0) {
                 searchBar
                 if isSearching {
                     if searchText.isEmpty {
                         quickDestinations
-                    } else if !searchResults.isEmpty {
-                        searchResultsList
+                    } else if searchText.count >= 2 {
+                        if !searchResults.isEmpty {
+                            searchResultsList
+                        } else {
+                            searchingIndicator
+                        }
                     }
                 }
             }
@@ -175,10 +179,31 @@ struct MapHomeView: View {
         .shadow(radius: 2)
     }
 
+    private var searchingIndicator: some View {
+        HStack(spacing: 12) {
+            ProgressView()
+            Text("Searching…").font(.subheadline).foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .shadow(radius: 2)
+    }
+
     private var searchResultsList: some View {
-        ScrollView {
+        // Dedup: remove results that are already in recent searches
+        let recents = app.recentSearches
+        let filtered = searchResults.filter { item in
+            let name = item.name ?? ""
+            let coord = item.placemark.coordinate
+            return !recents.contains { r in
+                r.name.caseInsensitiveCompare(name) == .orderedSame
+                    && abs(r.lat - coord.latitude) < 0.001
+                    && abs(r.lon - coord.longitude) < 0.001
+            }
+        }
+        return ScrollView {
             VStack(spacing: 0) {
-                ForEach(searchResults, id: \.self) { item in
+                ForEach(filtered, id: \.self) { item in
                     Button {
                         selectSearchResult(item)
                     } label: {
@@ -200,12 +225,49 @@ struct MapHomeView: View {
                         .padding(.horizontal, 12).padding(.vertical, 10)
                     }
                     .buttonStyle(.plain)
-                    Divider().padding(.leading, 12)
+                    if item != filtered.last { Divider().padding(.leading, 12) }
+                }
+
+                // Show recent matches below search results
+                if !filtered.isEmpty, let firstFiltered = filtered.first {
+                    let matchingRecents = recents.filter { r in
+                        r.name.localizedCaseInsensitiveContains(searchText)
+                    }
+                    if !matchingRecents.isEmpty {
+                        Section {} header: {
+                            HStack {
+                                Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary)
+                                Text("Recent").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 12).padding(.top, 8)
+                        }
+                        ForEach(matchingRecents) { place in
+                            Button {
+                                app.myDest = place
+                                app.hasDestination = true
+                                app.addRecentSearch(place)
+                                closeSearch()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "clock.arrow.circlepath")
+                                        .foregroundStyle(.secondary)
+                                    Text(place.name).font(.subheadline.weight(.medium))
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Text(String(format: "%.1f km", Geo.km(app.myOrigin, place)))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                .padding(.horizontal, 12).padding(.vertical, 10)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
             }
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
         }
-        .frame(maxHeight: 240)
+        .frame(maxHeight: 300)
         .shadow(radius: 2)
     }
 

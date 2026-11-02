@@ -62,5 +62,22 @@ fi
 echo "═══════════════════════════════════════════"
 echo ""
 
+# ── QR code for the first WiFi IP ─────────────────────────────────────
+QR_URL=""
+for iface in en0 en1 en2 en3; do
+  ip=$(ifconfig "$iface" 2>/dev/null | awk '/inet / {print $2}')
+  if [ -n "$ip" ] && [ "$ip" != "127.0.0.1" ]; then
+    QR_URL="http://$ip:$PORT"
+    break
+  fi
+done
+
+if [ -n "$QR_URL" ]; then
+  echo "  📱 Scan this QR code with your device to fill in the server URL:"
+  echo ""
+  python3 "$SCRIPT_DIR/qr_terminal.py" "$QR_URL" 2>/dev/null || echo "  (install qrcode: pip install qrcode)"
+  echo ""
+fi
+
 cd "$SCRIPT_DIR"
 python3 server.py "$PORT"
