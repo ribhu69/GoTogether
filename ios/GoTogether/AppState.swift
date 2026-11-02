@@ -48,6 +48,10 @@ final class AppState {
     // Real-time locations of other users (from server polling)
     var peerLocations: [PeerLocation] = []
 
+    // Polling status
+    var isRefreshing = false
+    var lastRefreshAt: Date?
+
     /// True when registered with the server.
     var isConnected: Bool { api.userId != nil }
 
@@ -138,12 +142,15 @@ final class AppState {
     func refreshIntents() {
         guard isConnected else { return }
         Task {
+            await MainActor.run { isRefreshing = true }
             let result = (try? await api.searchIntents(
                 origin: myOrigin, dest: myDest, comfortKm: myComfortKm,
                 verifiedOnly: search.verifiedOnly, sameGender: search.sameGenderOnly)) ?? SearchResult.empty
             await MainActor.run {
                 serverIntents = result.intents
                 peerLocations = result.peers
+                lastRefreshAt = Date()
+                isRefreshing = false
             }
         }
     }

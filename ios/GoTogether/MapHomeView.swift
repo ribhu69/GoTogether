@@ -314,8 +314,16 @@ struct MapHomeView: View {
                             if app.isConnected { Circle().fill(.green).frame(width: 6, height: 6) }
                             Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.secondary)
                         }
-                        Text("Comfort: \(Int(app.myComfortKm)) km · \(openVisible.count) nearby")
-                            .font(.caption).foregroundStyle(.secondary)
+                        HStack(spacing: 4) {
+                            Text("Comfort: \(Int(app.myComfortKm)) km · \(openVisible.count) nearby")
+                                .font(.caption).foregroundStyle(.secondary)
+                            if app.isRefreshing {
+                                ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
+                            } else if let ts = app.lastRefreshAt {
+                                Circle().fill(.clear).frame(width: 4, height: 4)
+                                    .overlay(Text(ts, style: .timer).font(.system(size: 9)).foregroundStyle(.tertiary))
+                            }
+                        }
                     }
                 }
                 .buttonStyle(.plain)
@@ -544,11 +552,19 @@ struct MapHomeView: View {
                     }
                 } else if app.serverPending.isEmpty {
                     Section {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Label("No matches yet", systemImage: "person.2.slash")
-                                .foregroundStyle(.secondary)
-                            Text("Toggle 'Open' so others can find you. When someone nearby goes Open, they'll appear here.")
-                                .font(.caption).foregroundStyle(.secondary)
+                        if app.isRefreshing {
+                            HStack(spacing: 12) {
+                                ProgressView()
+                                Text("Looking for co-riders near \(app.myDest.name)…")
+                                    .font(.subheadline).foregroundStyle(.secondary)
+                            }
+                        } else {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label("No matches yet", systemImage: "person.2.slash")
+                                    .foregroundStyle(.secondary)
+                                Text("Toggle 'Open' so others can find you. When someone nearby goes Open, they'll appear here.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
@@ -570,11 +586,20 @@ struct MapHomeView: View {
         let hits = app.matchingOpenIntents()
         return Group {
             if hits.isEmpty && app.serverPending.isEmpty {
-                ContentUnavailableView(
-                    "No open travelers nearby",
-                    systemImage: "person.2.slash",
-                    description: Text("Toggle 'Open' so others can find you, or wait for someone nearby to go Open.")
-                )
+                if app.isRefreshing {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                        Text("Scanning for open travelers…")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ContentUnavailableView(
+                        "No open travelers nearby",
+                        systemImage: "person.2.slash",
+                        description: Text("Toggle 'Open' so others can find you, or wait for someone nearby to go Open.")
+                    )
+                }
             } else {
                 List {
                     if !app.serverPending.isEmpty {
