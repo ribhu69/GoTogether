@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct OnboardingView: View {
     @Environment(AppState.self) private var app
@@ -8,6 +9,7 @@ struct OnboardingView: View {
     @State private var useServer = false
     @State private var step = 0   // 0=phone, 1=id, 2=emergency, 3=server+done
     @State private var quickStartAvailable = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
 
     var body: some View {
         @Bindable var app = app
@@ -105,6 +107,29 @@ struct OnboardingView: View {
         @Bindable var app = app
         return Form {
             Section {
+                // Profile photo
+                HStack {
+                    Spacer()
+                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                        ZStack {
+                            ProfileImageView(imageData: app.profileImageData,
+                                             size: 80, fallbackIcon: "person.crop.circle.fill",
+                                             fallbackColor: .blue)
+                            Circle()
+                                .stroke(.blue.opacity(0.3), lineWidth: 3)
+                                .frame(width: 84, height: 84)
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(.blue)
+                                .background(Circle().fill(.white))
+                                .offset(x: 28, y: 28)
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(.vertical, 8)
+                .listRowBackground(Color.clear)
+
                 TextField("Full name", text: $app.name)
                     .textContentType(.name)
                 Picker("Gender", selection: $app.gender) {
@@ -134,6 +159,14 @@ struct OnboardingView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .onChange(of: selectedPhotoItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    await MainActor.run { app.saveProfileImage(data) }
+                }
+            }
+        }
     }
 
     private var idStep: some View {

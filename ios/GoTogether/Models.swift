@@ -89,6 +89,7 @@ struct ChatMessage: Identifiable, Equatable {
     let toUserId: String
     let text: String
     let ts: Double
+    let replyToText: String?    // quoted text this message is replying to
 
     var isFromMe: Bool { fromUserId == ChatMessage.myUserId }
     static var myUserId = ""

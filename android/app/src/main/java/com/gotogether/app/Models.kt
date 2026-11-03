@@ -60,3 +60,12 @@ data class Trip(
     val status: TripStatus = TripStatus.Requested,
     val events: List<String> = emptyList(),
 )
+
+// Chat
+data class ChatMessage(
+    val fromUserId: String, val toUserId: String,
+    val text: String, val ts: Double, val replyToText: String? = null,
+) {
+    val isFromMe get() = fromUserId == myUserId
+    companion object { var myUserId = "" }
+}

@@ -96,6 +96,25 @@ enum Persistence {
             defaults.set(try? JSONEncoder().encode(stored), forKey: "recentSearches")
         }
     }
+
+    // MARK: - Profile image
+
+    private static var profileImageURL: URL {
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return dir.appendingPathComponent("profile.jpg")
+    }
+
+    static func saveProfileImage(_ data: Data) {
+        try? data.write(to: profileImageURL)
+    }
+
+    static func loadProfileImage() -> Data? {
+        try? Data(contentsOf: profileImageURL)
+    }
+
+    static func deleteProfileImage() {
+        try? FileManager.default.removeItem(at: profileImageURL)
+    }
 }
 
 private struct StoredPlace: Codable {

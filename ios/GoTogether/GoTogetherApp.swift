@@ -24,6 +24,9 @@ struct RootView: View {
             TabView {
                 MapHomeView()
                     .tabItem { Label("Map", systemImage: "map.fill") }
+                InboxView()
+                    .tabItem { Label("Messages", systemImage: "bubble.left.and.bubble.right") }
+                    .badge(app.unreadCount > 0 ? app.unreadCount : 0)
                 TripView()
                     .tabItem { Label("Trip", systemImage: "car.fill") }
                 SafetyView()

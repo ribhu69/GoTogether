@@ -12,9 +12,15 @@ Real devices → http://<mac-local-ip>:8080
 Two devices on the same WiFi can discover each other in real time through
 the /api/location endpoint (updated every few seconds by each client) and
 the /api/intents endpoint (which now returns peer locations too).
+
+Messages use long-polling: GET /api/messages and /api/messages/inbox hold
+the connection open up to 10 seconds. When a new message is POSTed, waiting
+GETs are woken immediately. Combined with client-side 500ms polling fallback,
+this delivers messages near-instantly even across two devices.
 """
-import json, time, math, uuid, sys, socket, os
+import json, time, math, uuid, sys, socket, os, threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 from urllib.parse import urlparse, parse_qs
 
 
@@ -61,7 +67,20 @@ users: dict[str, dict] = {}        # userId → profile
 intents: dict[str, dict] = {}      # intentId → intent (keyed by userId, overwritten)
 matches: dict[str, dict] = {}      # matchId → match state
 locations: dict[str, dict] = {}    # userId → {lat, lon, name, destLat, destLon, destName, ts}
-messages: dict[str, list] = {}     # chatId → [{fromUserId, toUserId, text, ts}]
+messages: dict[str, list] = {}     # chatId → [{fromUserId, toUserId, text, ts, replyToText}]
+blocked: dict[str, set] = {}       # userId → set of blocked userIds
+ended_chats: dict[str, float] = {} # chatId → end timestamp (messages not allowed after)
+# Groups
+groups: dict[str, dict] = {}       # groupId → {groupId, name, createdBy, memberIds, createdAt}
+group_messages: dict[str, list] = {} # groupId → [{fromUserId, text, ts, replyToText}]
+
+# ── long-poll signalling ─────────────────────────────────────────
+# When a message is POSTed, this condition is notified so any waiting
+# GET /api/messages or GET /api/messages/inbox returns immediately.
+_chat_cond = threading.Condition()
+# Monotonic counter — incremented each time a message is posted, so waiters
+# can detect new messages without holding the lock for the full timeout.
+_message_version = 0
 
 # ── geo ──────────────────────────────────────────────────────────
 def haversine_km(a: dict, b: dict) -> float:
@@ -79,13 +98,19 @@ def ok(obj, status=200):
 def err(msg, status=400):
     return status, json.dumps({"error": msg}).encode(), "application/json"
 
+# ── threaded server ──────────────────────────────────────────────
+class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+    """Handle each request in its own thread so long-polling doesn't block."""
+    daemon_threads = True
+
 # ── router ───────────────────────────────────────────────────────
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args): pass  # quiet
 
     def do_GET(self):
-        path = urlparse(self.path).path
-        qs = parse_qs(urlparse(self.path).query)
+        p = urlparse(self.path)
+        path = p.path
+        qs = parse_qs(p.query)
         if path == "/" or path == "/dashboard": self.dashboard()
         elif path == "/api/health":          self.health()
         elif path == "/api/intents":       self.search_intents(qs)
@@ -94,6 +119,10 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/messages/inbox": self.inbox(qs)
         elif path == "/api/messages":      self.get_messages(qs)
         elif path == "/api/me":            self.me(qs)
+        elif path == "/api/blocked":       self.list_blocked(qs)
+        elif path == "/api/group/list":    self.list_groups(qs)
+        elif path == "/api/group/messages": self.get_group_messages(qs)
+        elif path == "/api/group/inbox":   self.group_inbox(qs)
         else: self._respond(*err("not found", 404))
 
     def do_POST(self):
@@ -106,6 +135,11 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/match/request": self.request_match(body)
         elif path == "/api/match/respond": self.respond_match(body)
         elif path == "/api/message":      self.send_message(body)
+        elif path == "/api/block":        self.block_user(body)
+        elif path == "/api/unblock":      self.unblock_user(body)
+        elif path == "/api/chat/end":     self.end_chat(body)
+        elif path == "/api/group/create":  self.create_group(body)
+        elif path == "/api/group/message": self.send_group_message(body)
         else: self._respond(*err("not found", 404))
 
     def _body(self) -> dict:
@@ -117,7 +151,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ct)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
-        self.wfile.write(data)
+        try:
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass  # client disconnected — nothing to do
 
     def health(self):
         self._respond(*ok({"status": "ok", "users": len(users), "intents": len(intents),
@@ -134,7 +171,7 @@ class Handler(BaseHTTPRequestHandler):
             loc = locations.get(uid, {})
             intent = intents.get(uid, {})
             loc_age = round(now - loc["ts"], 1) if loc else None
-            fresh = loc_age is not None and loc_age <= 30
+            fresh = loc_age is not None and loc_age <= 60
             status = "●" if fresh else ("○" if loc_age is not None else "—")
             status_color = "#4ec9b0" if fresh else ("#ce9178" if loc_age is not None else "#808080")
             rows.append(f"""<tr>
@@ -171,7 +208,7 @@ td:first-child{{color:#e0e0e0;font-weight:500}}
 </style></head>
 <body>
 <h1>🚕 GoTogether <span>Dashboard</span></h1>
-<p class="sub">Live · {time.strftime('%H:%M:%S', time.localtime(now))} · auto‑refresh 3s</p>
+<p class="sub">Live · {time.strftime('%H:%M:%S', time.localtime(now))} · auto‑refresh 3s · long-poll chat</p>
 <div class="cards">
 <div class="card"><div class="num">{len(users)}</div><div class="label">Users</div></div>
 <div class="card"><div class="num">{len([i for i in intents.values() if i['isOpen']])}</div><div class="label">Open</div></div>
@@ -183,7 +220,7 @@ td:first-child{{color:#e0e0e0;font-weight:500}}
 <table><thead><tr><th>Name</th><th>Phone</th><th>Destination</th><th>Intent</th><th>GPS</th><th>User ID</th></tr></thead>
 <tbody>{''.join(rows) if rows else '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:30px">No users registered — pick a destination on a device</td></tr>'}</tbody></table>
 </div>
-<p class="footer"><span>●</span> fresh ≤30s &nbsp; <span style="color:var(--warn)">○</span> stale &nbsp; <span style="color:var(--muted)">—</span> no location</p>
+<p class="footer"><span>●</span> fresh ≤60s &nbsp; <span style="color:var(--warn)">○</span> stale &nbsp; <span style="color:var(--muted)">—</span> no location</p>
 <script>setTimeout(()=>location.reload(),3000)</script>
 </body></html>"""
 
@@ -291,6 +328,9 @@ td:first-child{{color:#e0e0e0;font-weight:500}}
             if not i["isOpen"] or i["userId"] == uid: continue
             if verified and not i["idVerified"]: continue
             if same_gender and my and i["userGender"] != my["gender"]: continue
+            # Hide blocked users and users who blocked us
+            if i["userId"] in blocked.get(uid, set()): continue
+            if uid in blocked.get(i["userId"], set()): continue
             origin_gap = haversine_km(origin, i["origin"])
             if origin_gap > 0.5: continue
             dest_gap = haversine_km(dest, i["dest"])
@@ -307,7 +347,7 @@ td:first-child{{color:#e0e0e0;font-weight:500}}
         peers = []
         for lid, loc in locations.items():
             if lid == uid: continue
-            if now - loc.get("ts", 0) > 30: continue
+            if now - loc.get("ts", 0) > 60: continue
             if lid not in compatible_user_ids: continue
             peers.append({
                 "userId": lid,
@@ -352,7 +392,7 @@ td:first-child{{color:#e0e0e0;font-weight:500}}
         peers = []
         for lid, loc in locations.items():
             if lid == uid: continue
-            if now - loc.get("ts", 0) > 30: continue
+            if now - loc.get("ts", 0) > 60: continue
             peers.append({
                 "userId": lid,
                 "userName": users.get(lid, {}).get("name", lid),
@@ -401,27 +441,268 @@ td:first-child{{color:#e0e0e0;font-weight:500}}
             m["status"] = "rejected"
         self._respond(*ok(m))
 
-    # ── chat ────────────────────────────────────────────────────
+    # ── chat with long-polling ───────────────────────────────────
 
     @staticmethod
     def _chat_id(a: str, b: str) -> str:
         return "-".join(sorted([a, b]))
 
     def send_message(self, b):
+        """Store message and wake all long-poll waiters. Blocks if chat ended or user blocked."""
         from_uid = b.get("fromUserId", "")
         to_uid = b.get("toUserId", "")
         text = (b.get("text") or "").strip()
         if not from_uid or not to_uid or not text:
             return self._respond(*err("missing fromUserId, toUserId, or text"))
         cid = self._chat_id(from_uid, to_uid)
+        # Enforce ended chats
+        if cid in ended_chats:
+            return self._respond(*err("this conversation has ended", 403))
+        # Enforce blocks (either direction)
+        if to_uid in blocked.get(from_uid, set()):
+            return self._respond(*err("you blocked this user", 403))
+        if from_uid in blocked.get(to_uid, set()):
+            return self._respond(*err("you are blocked by this user", 403))
         msg = {"fromUserId": from_uid, "toUserId": to_uid,
-               "text": text, "ts": time.time()}
-        # In-memory + file persistence
+               "text": text, "ts": time.time(),
+               "replyToText": b.get("replyToText")}
         messages.setdefault(cid, []).append(msg)
         _log_message(cid, msg)
+        # Wake all long-polling GETs immediately
+        with _chat_cond:
+            global _message_version
+            _message_version += 1
+            _chat_cond.notify_all()
         self._respond(*ok(msg, 201))
 
+    # ── block / end-chat ─────────────────────────────────────────
+
+    def block_user(self, b):
+        """POST /api/block — block a user by userId."""
+        uid = b.get("userId", "")
+        target = b.get("targetUserId", "")
+        if not uid or not target:
+            return self._respond(*err("missing userId or targetUserId"))
+        blocked.setdefault(uid, set()).add(target)
+        self._respond(*ok({"blocked": True, "targetUserId": target}))
+
+    def unblock_user(self, b):
+        """POST /api/unblock — unblock a user."""
+        uid = b.get("userId", "")
+        target = b.get("targetUserId", "")
+        if not uid or not target:
+            return self._respond(*err("missing userId or targetUserId"))
+        blocked.get(uid, set()).discard(target)
+        self._respond(*ok({"blocked": False, "targetUserId": target}))
+
+    def list_blocked(self, qs):
+        """GET /api/blocked — return the current user's blocked list."""
+        uid = qs.get("userId", [""])[0]
+        if not uid:
+            return self._respond(*err("missing userId"))
+        blist = list(blocked.get(uid, set()))
+        self._respond(*ok({"blockedUserIds": blist}))
+
+    def end_chat(self, b):
+        """POST /api/chat/end — mark a conversation as ended (no more messages)."""
+        uid = b.get("userId", "")
+        peer = b.get("peerId", "")
+        if not uid or not peer:
+            return self._respond(*err("missing userId or peerId"))
+        cid = self._chat_id(uid, peer)
+        ended_chats[cid] = time.time()
+        self._respond(*ok({"ended": True, "chatId": cid}))
+
+    # ── groups ────────────────────────────────────────────────────
+
+    @staticmethod
+    def _log_group_message(group_id: str, msg: dict) -> None:
+        path = os.path.join(LOG_DIR, f"group_{group_id}.jsonl")
+        with open(path, "a") as f:
+            f.write(json.dumps(msg) + "\n")
+
+    @staticmethod
+    def _load_group_messages(group_id: str) -> list[dict]:
+        path = os.path.join(LOG_DIR, f"group_{group_id}.jsonl")
+        if not os.path.exists(path):
+            return []
+        msgs = []
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        msgs.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        pass
+        return msgs
+
+    def create_group(self, b):
+        """POST /api/group/create — create a group with selected members."""
+        uid = b.get("userId", "")
+        name = b.get("name", "").strip()
+        member_ids = b.get("memberIds", [])
+        if not uid or not name or not member_ids:
+            return self._respond(*err("missing userId, name, or memberIds"))
+        # Ensure creator is in the group
+        all_members = list(set([uid] + member_ids))
+        gid = uuid.uuid4().hex[:10]
+        groups[gid] = {
+            "groupId": gid,
+            "name": name,
+            "createdBy": uid,
+            "memberIds": all_members,
+            "createdAt": time.time(),
+        }
+        self._respond(*ok(groups[gid], 201))
+
+    def list_groups(self, qs):
+        """GET /api/group/list — return groups the user is a member of."""
+        uid = qs.get("userId", [""])[0]
+        if not uid:
+            return self._respond(*err("missing userId"))
+        result = [g for g in groups.values() if uid in g["memberIds"]]
+        # Include member names
+        enriched = []
+        for g in result:
+            members = []
+            for mid in g["memberIds"]:
+                u = users.get(mid, {})
+                members.append({"userId": mid, "name": u.get("name", mid[:8])})
+            enriched.append({**g, "members": members})
+        self._respond(*ok({"groups": enriched}))
+
+    def send_group_message(self, b):
+        """POST /api/group/message — broadcast to all group members."""
+        from_uid = b.get("fromUserId", "")
+        gid = b.get("groupId", "")
+        text = (b.get("text") or "").strip()
+        if not from_uid or not gid or not text:
+            return self._respond(*err("missing fromUserId, groupId, or text"))
+        g = groups.get(gid)
+        if not g:
+            return self._respond(*err("group not found"))
+        if from_uid not in g["memberIds"]:
+            return self._respond(*err("not a member"))
+        msg = {"fromUserId": from_uid, "groupId": gid,
+               "text": text, "ts": time.time(),
+               "replyToText": b.get("replyToText"),
+               "senderName": users.get(from_uid, {}).get("name", from_uid[:8])}
+        group_messages.setdefault(gid, []).append(msg)
+        self._log_group_message(gid, msg)
+        with _chat_cond:
+            global _message_version
+            _message_version += 1
+            _chat_cond.notify_all()
+        self._respond(*ok(msg, 201))
+
+    def get_group_messages(self, qs):
+        """GET /api/group/messages — long-poll for group messages."""
+        uid = qs.get("userId", [""])[0]
+        gid = qs.get("groupId", [""])[0]
+        if not uid or not gid:
+            return self._respond(*err("missing userId or groupId"))
+        try:
+            since = float(qs.get("since", ["0"])[0])
+            limit = int(qs.get("limit", ["50"])[0])
+            before = float(qs.get("before", ["0"])[0]) or None
+            poll = qs.get("poll", ["1"])[0] != "0"
+        except ValueError:
+            return self._respond(*err("bad params"))
+        # Merge memory + file
+        mem = group_messages.get(gid, [])
+        file_msgs = self._load_group_messages(gid)
+        all_msgs = file_msgs if len(file_msgs) >= len(mem) else mem
+        if all_msgs and gid not in group_messages:
+            group_messages[gid] = all_msgs
+        filtered = [m for m in all_msgs if m["ts"] > since]
+        if before:
+            filtered = [m for m in filtered if m["ts"] < before]
+        if not filtered and poll:
+            self._wait_for_new_messages(uid, since, timeout_s=10.0)
+            mem = group_messages.get(gid, [])
+            file_msgs = self._load_group_messages(gid)
+            all_msgs = file_msgs if len(file_msgs) >= len(mem) else mem
+            filtered = [m for m in all_msgs if m["ts"] > since]
+            if before:
+                filtered = [m for m in filtered if m["ts"] < before]
+        filtered.sort(key=lambda m: m["ts"], reverse=True)
+        has_more = len(filtered) > limit
+        page = filtered[:limit]
+        self._respond(*ok({"messages": list(reversed(page)), "hasMore": has_more}))
+
+    def group_inbox(self, qs):
+        """GET /api/group/inbox — all groups with new messages since since."""
+        uid = qs.get("userId", [""])[0]
+        if not uid:
+            return self._respond(*err("missing userId"))
+        try:
+            since = float(qs.get("since", ["0"])[0])
+            poll = qs.get("poll", ["1"])[0] != "0"
+        except ValueError:
+            return self._respond(*err("bad since"))
+        convs = self._build_group_inbox(uid, since)
+        if not convs and poll:
+            self._wait_for_new_messages(uid, since, timeout_s=10.0)
+            convs = self._build_group_inbox(uid, since)
+        self._respond(*ok({"conversations": convs}))
+
+    def _build_group_inbox(self, uid: str, since: float) -> list[dict]:
+        all_gids = set(group_messages.keys())
+        if os.path.isdir(LOG_DIR):
+            for fname in os.listdir(LOG_DIR):
+                if fname.startswith("group_") and fname.endswith(".jsonl"):
+                    all_gids.add(fname[6:-5])
+        conversations = []
+        for gid in all_gids:
+            g = groups.get(gid, {})
+            member_ids = g.get("memberIds", [])
+            if uid not in member_ids:
+                continue
+            mem_msgs = group_messages.get(gid, [])
+            file_msgs = self._load_group_messages(gid)
+            all_msgs = file_msgs if len(file_msgs) >= len(mem_msgs) else mem_msgs
+            if all_msgs and gid not in group_messages:
+                group_messages[gid] = all_msgs
+            new_msgs = [m for m in all_msgs if m["ts"] > since]
+            if new_msgs or g:
+                conversations.append({
+                    "groupId": gid,
+                    "groupName": g.get("name", "Group") if g else "Group " + gid[:6],
+                    "memberIds": member_ids,
+                    "messages": new_msgs,
+                    "isGroup": True,
+                })
+        return conversations
+
+    def _wait_for_new_messages(self, uid: str, since: float, timeout_s: float = 10.0):
+        """Block until new messages arrive or timeout. Returns the version we saw."""
+        global _message_version
+        start_version = _message_version
+        with _chat_cond:
+            # Check if messages already exist (avoid race: message posted between
+            # our last poll and the lock acquire)
+            # We check after acquiring the lock to be safe.
+            remaining = timeout_s
+            while remaining > 0:
+                # Quick re-check: has anything new been posted?
+                if _message_version != start_version:
+                    return _message_version
+                wait_start = time.monotonic()
+                if not _chat_cond.wait(timeout=min(remaining, 1.0)):
+                    # timed out after 1s — loop to re-check
+                    remaining -= (time.monotonic() - wait_start)
+                    if remaining <= 0:
+                        break
+                    continue
+                # Woken up — either new messages or spurious
+                if _message_version != start_version:
+                    return _message_version
+                remaining -= (time.monotonic() - wait_start)
+        return _message_version
+
     def get_messages(self, qs):
+        """GET /api/messages — long-poll: wait up to 10s for new messages."""
         uid = qs.get("userId", [""])[0]
         peer = qs.get("peerId", [""])[0]
         if not uid or not peer:
@@ -430,49 +711,105 @@ td:first-child{{color:#e0e0e0;font-weight:500}}
             since = float(qs.get("since", ["0"])[0])
             limit = int(qs.get("limit", ["50"])[0])
             before = float(qs.get("before", ["0"])[0]) or None
+            poll = qs.get("poll", ["1"])[0] != "0"  # client can opt out of long-poll
         except ValueError:
             return self._respond(*err("bad params"))
         cid = self._chat_id(uid, peer)
+
+        # Quick check: any messages already?
         mem = messages.get(cid, [])
         file_msgs = _load_messages(cid)
         all_msgs = file_msgs if len(file_msgs) >= len(mem) else mem
         if all_msgs and cid not in messages:
             messages[cid] = all_msgs
-        # Filter: ts > since, and optionally ts < before (pagination)
         filtered = [m for m in all_msgs if m["ts"] > since]
         if before:
             filtered = [m for m in filtered if m["ts"] < before]
-        # Newest first for pagination (client reverses for display)
+
+        # If no new messages and long-poll enabled, wait
+        if not filtered and poll:
+            self._wait_for_new_messages(uid, since, timeout_s=10.0)
+            # Re-query after wake
+            mem = messages.get(cid, [])
+            file_msgs = _load_messages(cid)
+            all_msgs = file_msgs if len(file_msgs) >= len(mem) else mem
+            if all_msgs and cid not in messages:
+                messages[cid] = all_msgs
+            filtered = [m for m in all_msgs if m["ts"] > since]
+            if before:
+                filtered = [m for m in filtered if m["ts"] < before]
+
         filtered.sort(key=lambda m: m["ts"], reverse=True)
         has_more = len(filtered) > limit
         page = filtered[:limit]
         self._respond(*ok({"messages": list(reversed(page)), "hasMore": has_more}))
 
     def inbox(self, qs):
-        """Return all conversations with new messages since `since`."""
+        """GET /api/messages/inbox — long-poll: wait up to 10s for new messages."""
         uid = qs.get("userId", [""])[0]
         if not uid:
             return self._respond(*err("missing userId"))
         try:
             since = float(qs.get("since", ["0"])[0])
+            poll = qs.get("poll", ["1"])[0] != "0"
         except ValueError:
             return self._respond(*err("bad since"))
+
+        # Quick check
+        convs = self._build_inbox(uid, since)
+        if not convs and poll:
+            self._wait_for_new_messages(uid, since, timeout_s=10.0)
+            convs = self._build_inbox(uid, since)
+
+        self._respond(*ok({"conversations": convs}))
+
+    def _build_inbox(self, uid: str, since: float) -> list[dict]:
+        """Build inbox response — scans both in-memory AND file-persisted
+        conversations so messages survive server restarts."""
+        # Discover all chat IDs: in-memory + log files on disk
+        all_chat_ids = set(messages.keys())
+        if os.path.isdir(LOG_DIR):
+            for fname in os.listdir(LOG_DIR):
+                if fname.startswith("chat_") and fname.endswith(".jsonl"):
+                    cid = fname[5:-5]  # strip "chat_" prefix and ".jsonl" suffix
+                    all_chat_ids.add(cid)
+
         conversations = []
-        for cid, mem_msgs in messages.items():
+        for cid in all_chat_ids:
             ids = cid.split("-")
             if uid not in ids: continue
             peer = ids[0] if ids[1] == uid else ids[1]
-            # Merge with file
+            mem_msgs = messages.get(cid, [])
             file_msgs = _load_messages(cid)
             all_msgs = file_msgs if len(file_msgs) >= len(mem_msgs) else mem_msgs
+            # Also load into memory if missing (server restart recovery)
+            if all_msgs and cid not in messages:
+                messages[cid] = all_msgs
+            # Check if this conversation is ended
+            ended_at = ended_chats.get(cid)
+            blocked_peer = peer in blocked.get(uid, set())
             new_msgs = [m for m in all_msgs if m["ts"] > since]
             if new_msgs:
                 conversations.append({
                     "peerId": peer,
                     "peerName": users.get(peer, {}).get("name", peer[:8]),
                     "messages": new_msgs,
+                    "ended": ended_at is not None,
+                    "endedAt": ended_at,
+                    "blocked": blocked_peer,
                 })
-        self._respond(*ok({"conversations": conversations}))
+            elif ended_at is not None or blocked_peer:
+                # Return conversations even without new messages if they're ended/blocked
+                # (so the client still shows them in the inbox list)
+                conversations.append({
+                    "peerId": peer,
+                    "peerName": users.get(peer, {}).get("name", peer[:8]),
+                    "messages": [],
+                    "ended": ended_at is not None,
+                    "endedAt": ended_at,
+                    "blocked": blocked_peer,
+                })
+        return conversations
 
     def _find_compatible(self, intent: dict) -> list:
         """Return intents that would match this one (two-way check)."""
@@ -489,7 +826,7 @@ td:first-child{{color:#e0e0e0;font-weight:500}}
 
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
-    srv = HTTPServer(("0.0.0.0", port), Handler)
+    srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     ip = local_ip()
     print(f"GoTogether server → http://0.0.0.0:{port}")
     print(f"  Local (simulator):  http://localhost:{port}")
@@ -498,6 +835,7 @@ if __name__ == "__main__":
         print(f"  ⚠️  If your phone can't reach this IP, you may be on VPN.")
         print(f"     Check: ifconfig en0 | grep 'inet ' for your real WiFi IP.")
     print(f"  Health check:       http://localhost:{port}/api/health")
+    print("  Long-poll chat active (≤10s hold, instant wake on message)")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

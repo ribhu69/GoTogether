@@ -35,6 +35,31 @@ data class ServerMatch(
     val cabPlate: String?, val pin: String?, val driverName: String?,
 )
 
+// Chat
+data class ServerChatMessage(
+    val fromUserId: String, val toUserId: String, val text: String,
+    val ts: Double, val replyToText: String?,
+)
+data class ServerInboxConversation(
+    val peerId: String, val peerName: String, val messages: List<ServerChatMessage>,
+    val ended: Boolean?, val blocked: Boolean?,
+)
+
+// Groups
+data class ServerGroup(
+    val groupId: String, val name: String, val createdBy: String,
+    val memberIds: List<String>, val createdAt: Double, val members: List<GroupMember>?,
+)
+data class GroupMember(val userId: String, val name: String)
+data class ServerGroupMessage(
+    val fromUserId: String, val groupId: String, val text: String,
+    val ts: Double, val replyToText: String?, val senderName: String?,
+)
+data class ServerGroupConversation(
+    val groupId: String, val groupName: String, val memberIds: List<String>,
+    val messages: List<ServerGroupMessage>, val isGroup: Boolean?,
+)
+
 class ApiClient(var baseURL: String = "http://10.0.2.2:8080") {
     var userId: String? = null
 
@@ -133,6 +158,103 @@ class ApiClient(var baseURL: String = "http://10.0.2.2:8080") {
         return parseMatch(r)
     }
 
+    // ── Chat ──
+
+    suspend fun updateLocation(lat: Double, lon: Double, name: String) {
+        post("/api/location", JSONObject().apply {
+            put("userId", userId); put("lat", lat); put("lon", lon); put("name", name)
+        })
+    }
+
+    suspend fun sendMessage(toUserId: String, text: String, replyToText: String? = null): ServerChatMessage {
+        val r = post("/api/message", JSONObject().apply {
+            put("fromUserId", userId); put("toUserId", toUserId)
+            put("text", text)
+            if (replyToText != null) put("replyToText", replyToText)
+        })
+        return parseChatMsg(r)
+    }
+
+    suspend fun fetchMessages(peerId: String, since: Double = 0.0, limit: Int = 50, before: Double? = null, poll: Boolean = true): List<ServerChatMessage> {
+        var url = "/api/messages?userId=$userId&peerId=$peerId&since=$since&limit=$limit&poll=${if (poll) "1" else "0"}"
+        if (before != null) url += "&before=$before"
+        return parseChatMsgArray(get(url).getJSONArray("messages"))
+    }
+
+    suspend fun fetchInbox(since: Double = 0.0, poll: Boolean = false): List<ServerInboxConversation> {
+        val r = get("/api/messages/inbox?userId=$userId&since=$since&poll=${if (poll) "1" else "0"}")
+        val arr = r.getJSONArray("conversations")
+        return (0 until arr.length()).map { i ->
+            val c = arr.getJSONObject(i)
+            ServerInboxConversation(
+                c.getString("peerId"), c.getString("peerName"),
+                parseChatMsgArray(c.getJSONArray("messages")),
+                c.optBoolean("ended").takeIf { c.has("ended") },
+                c.optBoolean("blocked").takeIf { c.has("blocked") },
+            )
+        }
+    }
+
+    suspend fun blockUser(targetUserId: String) {
+        post("/api/block", JSONObject().apply { put("userId", userId); put("targetUserId", targetUserId) })
+    }
+
+    suspend fun unblockUser(targetUserId: String) {
+        post("/api/unblock", JSONObject().apply { put("userId", userId); put("targetUserId", targetUserId) })
+    }
+
+    suspend fun endChat(peerId: String) {
+        post("/api/chat/end", JSONObject().apply { put("userId", userId); put("peerId", peerId) })
+    }
+
+    suspend fun fetchBlocked(): List<String> {
+        val r = get("/api/blocked?userId=$userId")
+        val arr = r.getJSONArray("blockedUserIds")
+        return (0 until arr.length()).map { arr.getString(it) }
+    }
+
+    // ── Groups ──
+
+    suspend fun createGroup(name: String, memberIds: List<String>): ServerGroup {
+        val r = post("/api/group/create", JSONObject().apply {
+            put("userId", userId); put("name", name)
+            put("memberIds", JSONArray(memberIds))
+        })
+        return parseGroup(r)
+    }
+
+    suspend fun listGroups(): List<ServerGroup> {
+        val arr = get("/api/group/list?userId=$userId").getJSONArray("groups")
+        return (0 until arr.length()).map { parseGroup(arr.getJSONObject(it)) }
+    }
+
+    suspend fun sendGroupMessage(groupId: String, text: String, replyToText: String? = null): ServerGroupMessage {
+        val r = post("/api/group/message", JSONObject().apply {
+            put("fromUserId", userId); put("groupId", groupId); put("text", text)
+            if (replyToText != null) put("replyToText", replyToText)
+        })
+        return parseGroupMsg(r)
+    }
+
+    suspend fun fetchGroupMessages(groupId: String, since: Double = 0.0, limit: Int = 50, before: Double? = null, poll: Boolean = true): List<ServerGroupMessage> {
+        var url = "/api/group/messages?userId=$userId&groupId=$groupId&since=$since&limit=$limit&poll=${if (poll) "1" else "0"}"
+        if (before != null) url += "&before=$before"
+        return parseGroupMsgArray(get(url).getJSONArray("messages"))
+    }
+
+    suspend fun fetchGroupInbox(since: Double = 0.0, poll: Boolean = false): List<ServerGroupConversation> {
+        val arr = get("/api/group/inbox?userId=$userId&since=$since&poll=${if (poll) "1" else "0"}").getJSONArray("conversations")
+        return (0 until arr.length()).map { i ->
+            val c = arr.getJSONObject(i)
+            ServerGroupConversation(
+                c.getString("groupId"), c.getString("groupName"),
+                (0 until c.getJSONArray("memberIds").length()).map { c.getJSONArray("memberIds").getString(it) },
+                parseGroupMsgArray(c.getJSONArray("messages")),
+                c.optBoolean("isGroup").takeIf { c.has("isGroup") },
+            )
+        }
+    }
+
     // Bridge helpers
     fun toTravelIntent(si: ServerIntent): TravelIntent {
         val rider = Rider(
@@ -183,4 +305,32 @@ class ApiClient(var baseURL: String = "http://10.0.2.2:8080") {
         j.optDouble("destGapKm").takeIf { !j.isNull("destGapKm") }, j.getString("status"),
         j.optString("cabPlate", null), j.optString("pin", null), j.optString("driverName", null),
     )
+
+    private fun parseChatMsg(j: JSONObject) = ServerChatMessage(
+        j.getString("fromUserId"), j.getString("toUserId"), j.getString("text"),
+        j.getDouble("ts"), j.optString("replyToText", null).takeIf { j.has("replyToText") && !j.isNull("replyToText") },
+    )
+
+    private fun parseChatMsgArray(a: JSONArray): List<ServerChatMessage> =
+        (0 until a.length()).map { parseChatMsg(a.getJSONObject(it)) }
+
+    private fun parseGroup(j: JSONObject) = ServerGroup(
+        j.getString("groupId"), j.getString("name"), j.getString("createdBy"),
+        (0 until j.getJSONArray("memberIds").length()).map { j.getJSONArray("memberIds").getString(it) },
+        j.getDouble("createdAt"),
+        if (j.has("members")) (0 until j.getJSONArray("members").length()).map { i ->
+            val m = j.getJSONArray("members").getJSONObject(i)
+            GroupMember(m.getString("userId"), m.getString("name"))
+        } else null,
+    )
+
+    private fun parseGroupMsg(j: JSONObject) = ServerGroupMessage(
+        j.getString("fromUserId"), j.getString("groupId"), j.getString("text"),
+        j.getDouble("ts"),
+        j.optString("replyToText", null).takeIf { j.has("replyToText") && !j.isNull("replyToText") },
+        j.optString("senderName", null).takeIf { j.has("senderName") && !j.isNull("senderName") },
+    )
+
+    private fun parseGroupMsgArray(a: JSONArray): List<ServerGroupMessage> =
+        (0 until a.length()).map { parseGroupMsg(a.getJSONObject(it)) }
 }

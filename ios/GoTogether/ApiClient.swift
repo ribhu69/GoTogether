@@ -33,12 +33,18 @@ struct IntentsResponse: Codable { let intents: [ServerIntent]; let peers: [Serve
 struct MatchesResponse: Codable { let matches: [ServerMatch] }
 
 // Chat
-struct ServerChatMessage: Codable { let fromUserId: String; let toUserId: String; let text: String; let ts: Double }
+struct ServerChatMessage: Codable { let fromUserId: String; let toUserId: String; let text: String; let ts: Double; let replyToText: String? }
 struct MessagesResponse: Codable { let messages: [ServerChatMessage]; let hasMore: Bool? }
 
 // Bulk inbox
-struct InboxConversation: Codable { let peerId: String; let peerName: String; let messages: [ServerChatMessage] }
+struct InboxConversation: Codable { let peerId: String; let peerName: String; let messages: [ServerChatMessage]; let ended: Bool?; let endedAt: Double?; let blocked: Bool? }
 struct InboxResponse: Codable { let conversations: [InboxConversation] }
+
+// Groups
+struct ServerGroup: Codable { let groupId: String; let name: String; let createdBy: String; let memberIds: [String]; let createdAt: Double; let members: [GroupMember]? }
+struct GroupMember: Codable { let userId: String; let name: String }
+struct ServerGroupMessage: Codable { let fromUserId: String; let groupId: String; let text: String; let ts: Double; let replyToText: String?; let senderName: String? }
+struct ServerGroupConversation: Codable { let groupId: String; let groupName: String; let memberIds: [String]; let messages: [ServerGroupMessage]; let isGroup: Bool? }
 
 // Server-side "me" status
 struct ServerMeStatus: Codable {
@@ -170,24 +176,78 @@ final class ApiClient {
 
     // ── chat ──
 
-    func sendMessage(toUserId: String, text: String) async throws -> ServerChatMessage {
-        try await post("/api/message", SendMessageBody(fromUserId: userId!, toUserId: toUserId, text: text))
+    func sendMessage(toUserId: String, text: String, replyToText: String? = nil) async throws -> ServerChatMessage {
+        try await post("/api/message", SendMessageBody(fromUserId: userId!, toUserId: toUserId, text: text, replyToText: replyToText))
     }
 
-    func fetchMessages(peerId: String, since: Double = 0) async throws -> [ServerChatMessage] {
-        let r: MessagesResponse = try await get(
-            "/api/messages?userId=\(userId!)&peerId=\(peerId)&since=\(since)")
+    func fetchMessages(peerId: String, since: Double = 0, limit: Int = 50, before: Double? = nil, poll: Bool = true) async throws -> [ServerChatMessage] {
+        var url = "/api/messages?userId=\(userId!)&peerId=\(peerId)&since=\(since)&limit=\(limit)&poll=\(poll ? "1" : "0")"
+        if let b = before { url += "&before=\(b)" }
+        let r: MessagesResponse = try await get(url)
         return r.messages
     }
 
-    func fetchInbox(since: Double = 0) async throws -> [InboxConversation] {
+    func fetchInbox(since: Double = 0, poll: Bool = false) async throws -> [InboxConversation] {
         let r: InboxResponse = try await get(
-            "/api/messages/inbox?userId=\(userId!)&since=\(since)")
+            "/api/messages/inbox?userId=\(userId!)&since=\(since)&poll=\(poll ? "1" : "0")")
         return r.conversations
     }
 
     func fetchMe() async throws -> ServerMeStatus {
         try await get("/api/me?userId=\(userId!)")
+    }
+
+    // ── groups ──
+
+    func createGroup(name: String, memberIds: [String]) async throws -> ServerGroup {
+        try await post("/api/group/create", CreateGroupBody(userId: userId!, name: name, memberIds: memberIds))
+    }
+
+    func listGroups() async throws -> [ServerGroup] {
+        struct R: Decodable { let groups: [ServerGroup] }
+        let r: R = try await get("/api/group/list?userId=\(userId!)")
+        return r.groups
+    }
+
+    func sendGroupMessage(groupId: String, text: String, replyToText: String? = nil) async throws -> ServerGroupMessage {
+        try await post("/api/group/message", GroupMsgBody(fromUserId: userId!, groupId: groupId, text: text, replyToText: replyToText))
+    }
+
+    func fetchGroupMessages(groupId: String, since: Double = 0, limit: Int = 50, before: Double? = nil, poll: Bool = true) async throws -> [ServerGroupMessage] {
+        var url = "/api/group/messages?userId=\(userId!)&groupId=\(groupId)&since=\(since)&limit=\(limit)&poll=\(poll ? "1" : "0")"
+        if let b = before { url += "&before=\(b)" }
+        struct R: Decodable { let messages: [ServerGroupMessage]; let hasMore: Bool? }
+        let r: R = try await get(url)
+        return r.messages
+    }
+
+    func fetchGroupInbox(since: Double = 0, poll: Bool = false) async throws -> [ServerGroupConversation] {
+        struct R: Decodable { let conversations: [ServerGroupConversation] }
+        let r: R = try await get("/api/group/inbox?userId=\(userId!)&since=\(since)&poll=\(poll ? "1" : "0")")
+        return r.conversations
+    }
+
+    // ── block / end-chat ──
+
+    func blockUser(targetUserId: String) async throws {
+        struct Empty: Decodable {}
+        let _: Empty = try await post("/api/block", BlockBody(userId: userId!, targetUserId: targetUserId))
+    }
+
+    func unblockUser(targetUserId: String) async throws {
+        struct Empty: Decodable {}
+        let _: Empty = try await post("/api/unblock", BlockBody(userId: userId!, targetUserId: targetUserId))
+    }
+
+    func endChat(peerId: String) async throws {
+        struct Empty: Decodable {}
+        let _: Empty = try await post("/api/chat/end", EndChatBody(userId: userId!, peerId: peerId))
+    }
+
+    func fetchBlocked() async throws -> [String] {
+        struct R: Decodable { let blockedUserIds: [String] }
+        let r: R = try await get("/api/blocked?userId=\(userId!)")
+        return r.blockedUserIds
     }
 
     // ── bridge helpers ──
@@ -244,5 +304,21 @@ private struct MatchRespondBody: Encodable {
 }
 
 private struct SendMessageBody: Encodable {
-    let fromUserId: String; let toUserId: String; let text: String
+    let fromUserId: String; let toUserId: String; let text: String; let replyToText: String?
+}
+
+private struct BlockBody: Encodable {
+    let userId: String; let targetUserId: String
+}
+
+private struct EndChatBody: Encodable {
+    let userId: String; let peerId: String
+}
+
+private struct CreateGroupBody: Encodable {
+    let userId: String; let name: String; let memberIds: [String]
+}
+
+private struct GroupMsgBody: Encodable {
+    let fromUserId: String; let groupId: String; let text: String; let replyToText: String?
 }

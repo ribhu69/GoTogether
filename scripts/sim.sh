@@ -1,12 +1,19 @@
 #!/bin/bash
-# GoTogether — launch on two simulators + start server
+# GoTogether — launch Android emulator + iOS simulators + start server
+# Usage: bash scripts/sim.sh [ios|android|all]
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 SERVER_PORT="${SERVER_PORT:-8080}"
+PLATFORM="${1:-all}"
 
-IPHONE_18="6A824587-58D3-4740-AD4D-B22AC87E7B87"   # iPhone 18 Pro Max (iOS 27)
-IPHONE_17="319C58B1-7AF5-4681-8DB8-A04631B7A23C"   # iPhone 17 Pro Max (iOS 26.2)
+ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+ADB="$ANDROID_HOME/platform-tools/adb"
+EMULATOR="$ANDROID_HOME/emulator/emulator"
+AVD_NAME="Pixel_9_Pro_XL"  # change to your preferred AVD
+
+IPHONE_18="6A824587-58D3-4740-AD4D-B22AC87E7B87"
+IPHONE_17="319C58B1-7AF5-4681-8DB8-A04631B7A23C"
 
 cleanup() {
     echo ""
@@ -26,53 +33,90 @@ SERVER_PID=$!
 sleep 1
 echo "  Server: http://localhost:$SERVER_PORT"
 
-# ═══ 2. Build app ═══
-echo ""
-echo "━━━ Building app ━━━"
-cd "$PROJECT_DIR/ios"
-xcodegen generate --quiet 2>&1
+# ═══ Platform builds ═══
 
-xcodebuild -project GoTogether.xcodeproj -scheme GoTogether \
-    -configuration Debug \
-    -sdk iphonesimulator \
-    -destination "platform=iOS Simulator,id=$IPHONE_18" \
-    build 2>&1 | grep -E '(BUILD|error:)' | tail -3
-
-APP_PATH=$(xcodebuild -project GoTogether.xcodeproj -scheme GoTogether \
-    -configuration Debug -sdk iphonesimulator -showBuildSettings 2>/dev/null \
-    | grep "CODESIGNING_FOLDER_PATH" | head -1 | awk '{print $3}')
-
-if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
-    # Fallback: find the built app
+build_ios() {
+    echo ""
+    echo "━━━ Building iOS ━━━"
+    cd "$PROJECT_DIR/ios"
+    xcodegen generate --quiet 2>&1
+    xcodebuild -project GoTogether.xcodeproj -scheme GoTogether \
+        -configuration Debug -sdk iphonesimulator \
+        -destination "platform=iOS Simulator,id=$IPHONE_18" \
+        build 2>&1 | grep -E '(BUILD|error:)' | tail -3
     APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "GoTogether.app" \
         -path "*/Debug-iphonesimulator/*" 2>/dev/null | head -1)
-fi
+    echo "  iOS app: $APP_PATH"
 
-echo "  App: $APP_PATH"
+    echo ""
+    echo "━━━ Launching iOS simulators ━━━"
+    for SIM in "$IPHONE_18" "$IPHONE_17"; do
+        xcrun simctl boot "$SIM" 2>/dev/null || true
+    done
+    sleep 3
+    for SIM in "$IPHONE_18" "$IPHONE_17"; do
+        xcrun simctl install "$SIM" "$APP_PATH" 2>&1 || true
+        xcrun simctl launch "$SIM" com.gotogether.demo 2>&1 || true
+    done
+}
 
-# ═══ 3. Boot simulators + install ═══
-echo ""
-echo "━━━ Launching simulators ━━━"
+build_android() {
+    echo ""
+    echo "━━━ Building Android ━━━"
+    cd "$PROJECT_DIR/android"
+    ./gradlew assembleDebug 2>&1 | grep -E '(BUILD|Task)' | tail -3
 
-for SIM in "$IPHONE_18" "$IPHONE_17"; do
-    echo "  Booting $SIM..."
-    xcrun simctl boot "$SIM" 2>/dev/null || true
-done
+    APK_PATH=$(find "$PROJECT_DIR/android/app/build/outputs" -name "*.apk" 2>/dev/null | head -1)
+    echo "  APK: $APK_PATH"
 
-# Wait for simulators to finish booting
-sleep 3
+    echo ""
+    echo "━━━ Launching Android emulator ━━━"
+    # Start emulator in background
+    $EMULATOR -avd "$AVD_NAME" -no-snapshot-load &
+    EMU_PID=$!
+    echo "  Booting $AVD_NAME (PID $EMU_PID)…"
 
-for SIM in "$IPHONE_18" "$IPHONE_17"; do
-    NAME=$(xcrun simctl list devices | grep "$SIM" | sed -E 's/.*\(([0-9.]+)\) \([A-F0-9-]+\).*/\1/' | head -1)
-    echo "  Installing on $NAME..."
-    xcrun simctl install "$SIM" "$APP_PATH" 2>&1 || echo "    (install skipped — may already be installed)"
-    xcrun simctl launch "$SIM" com.gotogether.demo 2>&1 || echo "    (launch skipped)"
-done
+    # Wait for emulator to be ready
+    echo -n "  Waiting for device"
+    for i in $(seq 1 60); do
+        if $ADB get-state 2>/dev/null | grep -q device; then
+            echo " ready"
+            break
+        fi
+        echo -n "."
+        sleep 2
+    done
 
-# ═══ 4. Done ═══
+    # Wait for boot to complete
+    $ADB wait-for-device
+    while [ "$($ADB shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" != "1" ]; do
+        sleep 2
+    done
+    echo "  Device booted"
+
+    # Install and launch
+    $ADB install -r "$APK_PATH" 2>&1 || echo "  (install skipped — may already be installed)"
+    $ADB shell am start -n com.gotogether.demo/.MainActivity 2>&1 || true
+    echo "  App launched"
+}
+
+# ═══ Execute ═══
+
+case "$PLATFORM" in
+    ios)   build_ios ;;
+    android) build_android ;;
+    all)
+        build_ios
+        build_android
+        ;;
+    *)
+        echo "Usage: bash scripts/sim.sh [ios|android|all]"
+        exit 1
+        ;;
+esac
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  Both simulators launched"
 echo "  Server: http://localhost:$SERVER_PORT"
 echo "  Dashboard: http://localhost:$SERVER_PORT"
 echo "  Press Ctrl+C to stop"

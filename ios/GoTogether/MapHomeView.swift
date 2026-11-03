@@ -14,154 +14,87 @@ struct MapHomeView: View {
     @State private var isSearching = false
     @State private var showRideApps = false
     @State private var hasInitialCenter = false
+    @State private var myRoute: MKRoute?
+    @State private var peerRoutes: [String: MKRoute] = [:]
+    @State private var showGroupCreate = false  // peerId → route
 
     private let originSpanKm: Double = 0.5
 
     var body: some View {
         @Bindable var app = app
+        mainContent
+            .onAppear { setup(app: app) }
+            .onChange(of: app.location.location) { _, _ in onLocChanged() }
+            .onChange(of: [app.search.verifiedOnly, app.search.sameGenderOnly]) { _, _ in app.refreshIntents() }
+            .onChange(of: searchText) { _, v in performSearch(v) }
+            .onChange(of: app.myComfortKm) { _, _ in app.syncIntent() }
+            .onChange(of: app.myDest) { _, _ in app.syncIntent(); calculateMyRoute() }
+            .onChange(of: app.hasDestination) { _, now in if now { app.refreshIntents(); calculateMyRoute() } }
+            .onChange(of: app.peerLocations.count) { _, _ in calculatePeerRoutes() }
+            .onChange(of: app.serverIntents.count) { _, _ in calculatePeerRoutes() }
+            .task { await pollingLoop() }
+            .sheet(isPresented: $showSheet) { sheetContent }
+            .sheet(item: $tappedIntent) { intentDetail($0) }
+            .sheet(item: $selectedPeer) { PeerChatSheet(peer: $0) }
+            .sheet(isPresented: $showRideApps) { rideAppsSheet }
+        .sheet(isPresented: $showGroupCreate) { GroupCreateSheet() }
+    }
 
-        ZStack(alignment: .top) {
-            Map(position: $position, interactionModes: .all) {
-                // User location
-                UserAnnotation()
-
-                // My origin
-                Annotation("You", coordinate: app.myOrigin.coord) {
-                    Circle().fill(.blue).frame(width: 14, height: 14)
-                        .overlay(Circle().stroke(.white, lineWidth: 3))
-                        .shadow(radius: 3)
-                }
-
-                // My destination
-                if app.myDest.id != app.myOrigin.id {
-                    Annotation("Your destination", coordinate: app.myDest.coord) {
-                        Image(systemName: "mappin.circle.fill")
-                            .font(.title).foregroundStyle(.red)
-                    }
-
-                    // Route line
-                    MapPolyline(coordinates: [app.myOrigin.coord, app.myDest.coord])
-                        .stroke(.blue.opacity(0.5), lineWidth: 2)
-                }
-
-                // Comfort radius
-                MapCircle(center: app.myDest.coord, radius: app.myComfortKm * 1000)
-                    .foregroundStyle(.orange.opacity(0.15))
-                    .mapOverlayLevel(level: .aboveLabels)
-
-                // Origin span circle
-                MapCircle(center: app.myOrigin.coord, radius: originSpanKm * 1000)
-                    .foregroundStyle(.blue.opacity(0.08))
-                    .mapOverlayLevel(level: .aboveLabels)
-
-                // Peer live locations
-                ForEach(app.peerLocations) { peer in
-                    Annotation(peer.name, coordinate: peer.coord) {
-                        VStack(spacing: 2) {
-                            ZStack(alignment: .topTrailing) {
-                                Image(systemName: "person.circle.fill")
-                                    .font(.title2).foregroundStyle(.green)
-                                if app.unreadChats.contains(peer.id) {
-                                    Circle().fill(.red).frame(width: 8, height: 8)
-                                }
-                            }
-                            Text(peer.name.components(separatedBy: " ").first ?? peer.name)
-                                .font(.system(size: 9, weight: .medium))
-                                .padding(.horizontal, 4).padding(.vertical, 2)
-                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 4))
-                        }
-                        .onTapGesture { selectedPeer = peer }
-                    }
-
-                    // Line to their destination
-                    if let dest = peer.destination?.coord {
-                        MapPolyline(coordinates: [peer.coord, dest])
-                            .stroke(.green.opacity(0.35), lineWidth: 1.5)
-                    }
-                }
-
-                // Open traveler intents
-                ForEach(openVisible) { intent in
-                    Annotation(intent.rider.name, coordinate: intent.origin.coord) {
-                        VStack(spacing: 2) {
-                            Image(systemName: "person.circle.fill")
-                                .font(.title2).foregroundStyle(.green)
-                            Text(intent.rider.name.components(separatedBy: " ").first ?? "")
-                                .font(.system(size: 9, weight: .medium))
-                                .padding(.horizontal, 4).padding(.vertical, 2)
-                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 4))
-                        }
-                        .onTapGesture { tappedIntent = intent }
-                    }
-
-                    MapPolyline(coordinates: [intent.origin.coord, intent.rider.destination.coord])
-                        .stroke(.green.opacity(0.35), lineWidth: 1.5)
-                }
-            }
-            .mapStyle(.standard(pointsOfInterest: .excludingAll))
-            .mapControls { MapUserLocationButton(); MapCompass(); MapScaleView() }
-            .safeAreaInset(edge: .bottom) { bottomBar }
-
-            // Search bar + inline results
-            VStack(spacing: 0) {
-                searchBar
-                if isSearching {
-                    if searchText.isEmpty {
-                        quickDestinations
-                    } else if searchText.count >= 2 {
-                        if !searchResults.isEmpty {
-                            searchResultsList
-                        } else {
-                            searchingIndicator
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
-            .adaptiveWidth()
-        }
-        .onAppear {
-            app.location.request()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                app.updateOriginFromLocation()
-                recenterOnUser()
-                hasInitialCenter = true
-            }
-            app.refreshIntents()
-        }
-        .onChange(of: app.location.location) { _, _ in
+    private func setup(app: AppState) {
+        app.location.request()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             app.updateOriginFromLocation()
-            if !hasInitialCenter {
-                recenterOnUser()
-                hasInitialCenter = true
+            recenterOnUser()
+            hasInitialCenter = true
+        }
+        app.refreshIntents()
+    }
+
+    private func onLocChanged() {
+        app.updateOriginFromLocation()
+        if !hasInitialCenter { recenterOnUser(); hasInitialCenter = true }
+    }
+
+    private func pollingLoop() async {
+        while !Task.isCancelled {
+            await app.pollCycle()
+            try? await Task.sleep(for: .seconds(1))
+        }
+    }
+
+    @ViewBuilder
+    private var mainContent: some View {
+        ZStack(alignment: .top) {
+            GoTogetherMap(position: $position, app: app,
+                          myRoute: myRoute, peerRoutes: peerRoutes,
+                          openVisible: openVisible,
+                          selectedPeer: $selectedPeer, tappedIntent: $tappedIntent,
+                          originSpanKm: originSpanKm)
+                .safeAreaInset(edge: .bottom) { bottomBar }
+            searchOverlay
+        }
+    }
+
+    // MARK: - Search overlay (broken out for compiler)
+
+    private var searchOverlay: some View {
+        VStack(spacing: 0) {
+            searchBar
+            if isSearching {
+                if searchText.isEmpty {
+                    quickDestinations
+                } else if searchText.count >= 2 {
+                    if !searchResults.isEmpty {
+                        searchResultsList
+                    } else {
+                        searchingIndicator
+                    }
+                }
             }
         }
-        .onChange(of: app.search.verifiedOnly) { _, _ in app.refreshIntents() }
-        .onChange(of: app.search.sameGenderOnly) { _, _ in app.refreshIntents() }
-        .onChange(of: searchText) { _, newValue in performSearch(newValue) }
-        .onChange(of: app.myComfortKm) { _, _ in app.syncIntent() }
-        .onChange(of: app.myDest) { _, _ in app.syncIntent() }
-        .onChange(of: app.hasDestination) { _, now in
-            if now { app.refreshIntents() }
-        }
-        .task {
-            // Polling loop: refresh intents + peer locations + messages every 3 seconds
-            while !Task.isCancelled {
-                // 1. Publish our data first (so others can find us)
-                app.syncLocation()
-                if app.hasDestination { app.syncIntent() }
-                // 2. Then search for others
-                app.pollPending()
-                app.refreshIntents()
-                app.pollMessagesFromPeers()
-                try? await Task.sleep(for: .seconds(2))
-            }
-        }
-        .sheet(isPresented: $showSheet) { sheetContent }
-        .sheet(item: $tappedIntent) { intent in intentDetail(intent) }
-        .sheet(item: $selectedPeer) { peer in PeerChatSheet(peer: peer) }
-        .sheet(isPresented: $showRideApps) { rideAppsSheet }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .adaptiveWidth()
     }
 
     // MARK: - Search bar
@@ -307,6 +240,75 @@ struct MapHomeView: View {
     }
 
     // MARK: - Map helpers
+
+    private func peerAnnotationView(_ peer: PeerLocation) -> some View {
+        VStack(spacing: 2) {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "person.circle.fill")
+                    .font(.title2).foregroundStyle(.green)
+                if app.unreadChats.contains(peer.id) {
+                    Circle().fill(.red).frame(width: 8, height: 8)
+                }
+            }
+            Text(peer.name.components(separatedBy: " ").first ?? peer.name)
+                .font(.system(size: 9, weight: .medium))
+                .padding(.horizontal, 4).padding(.vertical, 2)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 4))
+        }
+        .onTapGesture { selectedPeer = peer }
+    }
+
+    private func intentAnnotationView(_ intent: TravelIntent) -> some View {
+        VStack(spacing: 2) {
+            Image(systemName: "person.circle.fill")
+                .font(.title2).foregroundStyle(.green)
+            Text(intent.rider.name.components(separatedBy: " ").first ?? "")
+                .font(.system(size: 9, weight: .medium))
+                .padding(.horizontal, 4).padding(.vertical, 2)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 4))
+        }
+        .onTapGesture { tappedIntent = intent }
+    }
+
+    private func calculateRoute(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) async -> MKRoute? {
+        let req = MKDirections.Request()
+        req.source = MKMapItem(placemark: MKPlacemark(coordinate: from))
+        req.destination = MKMapItem(placemark: MKPlacemark(coordinate: to))
+        req.transportType = .automobile
+        return await withCheckedContinuation { cont in
+            MKDirections(request: req).calculate { response, _ in
+                cont.resume(returning: response?.routes.first)
+            }
+        }
+    }
+
+    private func calculateMyRoute() {
+        guard app.myDest.id != app.myOrigin.id else { myRoute = nil; return }
+        Task {
+            let route = await calculateRoute(from: app.myOrigin.coord, to: app.myDest.coord)
+            await MainActor.run { myRoute = route }
+        }
+    }
+
+    private func calculatePeerRoutes() {
+        Task {
+            var routes: [String: MKRoute] = [:]
+            // From peer locations
+            for peer in app.peerLocations {
+                if let dest = peer.destination?.coord {
+                    routes[peer.id] = await calculateRoute(from: peer.coord, to: dest)
+                }
+            }
+            // From open intents
+            for intent in app.matchingOpenIntents() {
+                if routes[intent.userId] == nil {
+                    routes[intent.userId] = await calculateRoute(
+                        from: intent.origin.coord, to: intent.rider.destination.coord)
+                }
+            }
+            await MainActor.run { peerRoutes = routes }
+        }
+    }
 
     private func recenterOnUser() {
         let span = app.myComfortKm * 2 * 1000 + 2000
@@ -643,6 +645,11 @@ struct MapHomeView: View {
 
                 if !hits.isEmpty {
                     Section("\(hits.count) matching near \(app.myDest.name)") {
+                        // Create group button
+                        Button { showGroupCreate = true } label: {
+                            Label("Start a group with these riders", systemImage: "person.3.fill")
+                        }
+
                         ForEach(hits) { i in
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
@@ -752,6 +759,9 @@ struct MapHomeView: View {
                         Section("\(hits.count) people would be notified") {
                             Text("These users are Open near your origin and their destination fits your comfort range.")
                                 .font(.caption).foregroundStyle(.secondary)
+                            Button { showGroupCreate = true } label: {
+                                Label("Start a group with these riders", systemImage: "person.3.fill")
+                            }
                         }
                     }
                     ForEach(hits) { i in
@@ -835,6 +845,144 @@ struct MapHomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .presentationDetents([.medium, .large])
         }
+    }
+}
+
+// MARK: - Extracted Map view (avoids compiler type-check complexity)
+
+struct GoTogetherMap: View {
+    @Binding var position: MapCameraPosition
+    let app: AppState
+    let myRoute: MKRoute?
+    let peerRoutes: [String: MKRoute]
+    let openVisible: [TravelIntent]
+    @Binding var selectedPeer: PeerLocation?
+    @Binding var tappedIntent: TravelIntent?
+    let originSpanKm: Double
+
+    var body: some View {
+        Map(position: $position, interactionModes: .all) {
+            UserAnnotation()
+            Annotation("You", coordinate: app.myOrigin.coord) {
+                ProfileImageView(imageData: app.profileImageData, size: 36,
+                                 fallbackIcon: "person.circle.fill", fallbackColor: .blue)
+            }
+            if app.myDest.id != app.myOrigin.id {
+                Annotation("Your destination", coordinate: app.myDest.coord) {
+                    Image(systemName: "mappin.circle.fill").font(.title).foregroundStyle(.red)
+                }
+                if let r = myRoute {
+                    MapPolyline(r).stroke(.blue.opacity(0.5), lineWidth: 3)
+                }
+            }
+            MapCircle(center: app.myDest.coord, radius: app.myComfortKm * 1000)
+                .foregroundStyle(.orange.opacity(0.15)).mapOverlayLevel(level: .aboveLabels)
+            MapCircle(center: app.myOrigin.coord, radius: originSpanKm * 1000)
+                .foregroundStyle(.blue.opacity(0.08)).mapOverlayLevel(level: .aboveLabels)
+            ForEach(app.peerLocations) { peer in
+                Annotation(peer.name, coordinate: peer.coord) {
+                    VStack(spacing: 2) {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "person.circle.fill")
+                                .font(.title2).foregroundStyle(.green)
+                            if app.unreadChats.contains(peer.id) {
+                                Circle().fill(.red).frame(width: 8, height: 8)
+                            }
+                        }
+                        Text(peer.name.components(separatedBy: " ").first ?? peer.name)
+                            .font(.system(size: 9, weight: .medium))
+                            .padding(.horizontal, 4).padding(.vertical, 2)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 4))
+                    }
+                    .onTapGesture { selectedPeer = peer }
+                }
+            }
+            ForEach(app.peerLocations) { peer in
+                if let r = peerRoutes[peer.id] {
+                    MapPolyline(r).stroke(.green.opacity(0.35), lineWidth: 2)
+                }
+            }
+            ForEach(openVisible) { intent in
+                Annotation(intent.rider.name, coordinate: intent.origin.coord) {
+                    VStack(spacing: 2) {
+                        Image(systemName: "person.circle.fill")
+                            .font(.title2).foregroundStyle(.green)
+                        Text(intent.rider.name.components(separatedBy: " ").first ?? "")
+                            .font(.system(size: 9, weight: .medium))
+                            .padding(.horizontal, 4).padding(.vertical, 2)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 4))
+                    }
+                    .onTapGesture { tappedIntent = intent }
+                }
+            }
+            ForEach(openVisible) { intent in
+                if let r = peerRoutes[intent.userId] {
+                    MapPolyline(r).stroke(.green.opacity(0.35), lineWidth: 2)
+                }
+            }
+        }
+        .mapStyle(.standard(pointsOfInterest: .excludingAll))
+        .mapControls { MapUserLocationButton(); MapCompass(); MapScaleView() }
+    }
+}
+
+// MARK: - Group creation sheet
+
+struct GroupCreateSheet: View {
+    @Environment(AppState.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var groupName = "Cab Share"
+    @State private var selectedIds: Set<String> = []
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Group name") {
+                    TextField("Group name", text: $groupName)
+                }
+                Section("Select riders") {
+                    let candidates = app.matchingOpenIntents()
+                    if candidates.isEmpty {
+                        Text("No riders nearby — pick a destination first").foregroundStyle(.secondary)
+                    }
+                    ForEach(candidates) { intent in
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(intent.rider.name).font(.headline)
+                                Text("→ \(intent.rider.destination.name)")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if selectedIds.contains(intent.userId) {
+                                Image(systemName: "checkmark.circle.fill").foregroundStyle(.blue)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if selectedIds.contains(intent.userId) {
+                                selectedIds.remove(intent.userId)
+                            } else {
+                                selectedIds.insert(intent.userId)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("New Group")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        app.createGroup(name: groupName, memberIds: Array(selectedIds))
+                        dismiss()
+                    }
+                    .disabled(selectedIds.isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .onAppear { app.fetchMyGroups() }
     }
 }
 

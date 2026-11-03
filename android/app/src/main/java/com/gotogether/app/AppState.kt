@@ -47,6 +47,35 @@ class AppState : ViewModel() {
 
     val isConnected get() = api.userId != null
 
+    // Chat
+    val chatMessages = mutableStateListOf<ChatMessage>()
+    var activeChatPeerId by mutableStateOf("")
+    val unreadChats = mutableStateListOf<String>()
+    val conversations = mutableStateListOf<InboxConv>()
+    val blockedUserIds = mutableStateListOf<String>()
+    var isLoadingChat by mutableStateOf(false)
+    var hasMoreChat by mutableStateOf(false)
+    private val chatPageSize = 20
+    private val lastChatPoll = mutableMapOf<String, Double>()
+
+    // Groups
+    val myGroups = mutableStateListOf<GroupInfo>()
+    var activeGroupId by mutableStateOf("")
+    val groupMessages = mutableStateListOf<ChatMessage>()
+    var lastGroupPoll by mutableStateOf(0.0)
+    var isLoadingGroup by mutableStateOf(false)
+    var hasMoreGroup by mutableStateOf(false)
+
+    data class InboxConv(
+        val peerId: String, val peerName: String, val lastText: String,
+        val lastTs: Double, var unread: Boolean, var ended: Boolean, var blocked: Boolean,
+    )
+
+    data class GroupInfo(
+        val id: String, val name: String,
+        val memberIds: List<String>, val memberNames: List<String>,
+    )
+
     // ── Registration (server) ──
 
     fun registerWithServer(onResult: (Boolean) -> Unit) {
@@ -186,4 +215,206 @@ class AppState : ViewModel() {
     """.trimIndent()
 
     private fun stamp() = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
+
+    // ── Chat ──
+
+    fun openChat(peerId: String) {
+        ChatMessage.myUserId = api.userId ?: ""
+        if (activeChatPeerId != peerId) {
+            chatMessages.clear()
+            lastChatPoll[peerId] = 0.0
+        }
+        activeChatPeerId = peerId
+        unreadChats.remove(peerId)
+        isLoadingChat = true
+        fetchChatMessages(peerId)
+        viewModelScope.launch {
+            try { blockedUserIds.clear(); blockedUserIds.addAll(api.fetchBlocked()) }
+            catch (_: Exception) {}
+        }
+    }
+
+    fun closeChat() { activeChatPeerId = "" }
+
+    fun fetchChatMessages(peerId: String = activeChatPeerId) {
+        if (!isConnected || peerId.isEmpty()) return
+        val since = lastChatPoll[peerId] ?: 0.0
+        val isInitial = since == 0.0
+        viewModelScope.launch {
+            try {
+                val msgs = api.fetchMessages(peerId, since, chatPageSize, poll = !isInitial)
+                isLoadingChat = false
+                hasMoreChat = msgs.size >= chatPageSize
+                for (sm in msgs) {
+                    val msg = ChatMessage(sm.fromUserId, sm.toUserId, sm.text, sm.ts, sm.replyToText)
+                    if (chatMessages.none { it.ts == msg.ts && it.fromUserId == msg.fromUserId })
+                        chatMessages.add(msg)
+                }
+                chatMessages.sortBy { it.ts }
+                msgs.lastOrNull()?.let { lastChatPoll[peerId] = it.ts }
+            } catch (_: Exception) { isLoadingChat = false }
+        }
+    }
+
+    fun loadOlderMessages() {
+        if (!isConnected || activeChatPeerId.isEmpty()) return
+        val before = chatMessages.firstOrNull()?.ts ?: (System.currentTimeMillis() / 1000.0)
+        viewModelScope.launch {
+            try {
+                val msgs = api.fetchMessages(activeChatPeerId, 0.0, chatPageSize, before, false)
+                hasMoreChat = msgs.size >= chatPageSize
+                for (sm in msgs) {
+                    val msg = ChatMessage(sm.fromUserId, sm.toUserId, sm.text, sm.ts, sm.replyToText)
+                    if (chatMessages.none { it.ts == msg.ts && it.fromUserId == msg.fromUserId })
+                        chatMessages.add(msg)
+                }
+                chatMessages.sortBy { it.ts }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun sendChatMessage(text: String, replyToText: String? = null) {
+        if (!isConnected || activeChatPeerId.isEmpty()) return
+        val peerId = activeChatPeerId
+        ChatMessage.myUserId = api.userId ?: ""
+        val myId = api.userId ?: ""
+        val now = System.currentTimeMillis() / 1000.0
+        val local = ChatMessage(myId, peerId, text, now, replyToText)
+        chatMessages.add(local)
+        viewModelScope.launch {
+            try {
+                val sm = api.sendMessage(peerId, text, replyToText)
+                chatMessages.removeAll { it.ts == now && it.fromUserId == myId }
+                chatMessages.add(ChatMessage(sm.fromUserId, sm.toUserId, sm.text, sm.ts, sm.replyToText))
+                chatMessages.sortBy { it.ts }
+                lastChatPoll[peerId] = sm.ts
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun pollMessagesFromPeers() {
+        if (!isConnected) return
+        viewModelScope.launch {
+            try {
+                val convs = api.fetchInbox(0.0, false)
+                val updated = mutableListOf<InboxConv>()
+                for (c in convs) {
+                    val pid = c.peerId
+                    if (!lastChatPoll.containsKey(pid)) lastChatPoll[pid] = 0.0
+                    for (sm in c.messages) {
+                        val msg = ChatMessage(sm.fromUserId, sm.toUserId, sm.text, sm.ts, sm.replyToText)
+                        if (chatMessages.none { it.ts == msg.ts && it.fromUserId == msg.fromUserId })
+                            chatMessages.add(msg)
+                    }
+                    chatMessages.sortBy { it.ts }
+                    c.messages.lastOrNull()?.let { lastChatPoll[pid] = maxOf(lastChatPoll[pid]!!, it.ts) }
+                    val hasFromPeer = c.messages.any { it.fromUserId == pid }
+                    if (hasFromPeer && pid != activeChatPeerId) unreadChats.add(pid)
+                    val last = c.messages.lastOrNull()
+                    updated.add(InboxConv(pid, c.peerName, last?.text ?: "", last?.ts ?: 0.0,
+                        unreadChats.contains(pid), c.ended ?: false, c.blocked ?: false))
+                }
+                conversations.clear(); conversations.addAll(updated)
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun blockUser(peerId: String) {
+        blockedUserIds.add(peerId)
+        viewModelScope.launch { try { api.blockUser(peerId) } catch (_: Exception) {} }
+    }
+
+    fun unblockUser(peerId: String) {
+        blockedUserIds.remove(peerId)
+        viewModelScope.launch { try { api.unblockUser(peerId) } catch (_: Exception) {} }
+    }
+
+    fun endChat(peerId: String) {
+        viewModelScope.launch { try { api.endChat(peerId) } catch (_: Exception) {} }
+    }
+
+    // ── Groups ──
+
+    fun fetchMyGroups() {
+        if (!isConnected) return
+        viewModelScope.launch {
+            try {
+                val gs = api.listGroups()
+                myGroups.clear()
+                myGroups.addAll(gs.map { g ->
+                    GroupInfo(g.groupId, g.name, g.memberIds,
+                        g.members?.map { it.name } ?: g.memberIds.map { it.take(8) })
+                })
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun createGroup(name: String, memberIds: List<String>) {
+        if (!isConnected) return
+        viewModelScope.launch {
+            try { api.createGroup(name, memberIds); fetchMyGroups() }
+            catch (_: Exception) {}
+        }
+    }
+
+    fun openGroup(groupId: String) {
+        ChatMessage.myUserId = api.userId ?: ""
+        activeGroupId = groupId
+        groupMessages.clear()
+        lastGroupPoll = 0.0
+        isLoadingGroup = true
+        fetchGroupMessages()
+    }
+
+    fun closeGroup() { activeGroupId = "" }
+
+    fun fetchGroupMessages() {
+        if (!isConnected || activeGroupId.isEmpty()) return
+        val since = lastGroupPoll
+        val isInitial = since == 0.0
+        viewModelScope.launch {
+            try {
+                val msgs = api.fetchGroupMessages(activeGroupId, since, chatPageSize, poll = !isInitial)
+                isLoadingGroup = false
+                hasMoreGroup = msgs.size >= chatPageSize
+                for (sm in msgs) {
+                    val msg = ChatMessage(sm.fromUserId, sm.groupId, sm.text, sm.ts, sm.replyToText)
+                    if (groupMessages.none { it.ts == msg.ts && it.fromUserId == msg.fromUserId })
+                        groupMessages.add(msg)
+                }
+                groupMessages.sortBy { it.ts }
+                msgs.lastOrNull()?.let { lastGroupPoll = it.ts }
+            } catch (_: Exception) { isLoadingGroup = false }
+        }
+    }
+
+    fun sendGroupMessage(text: String, replyToText: String? = null) {
+        if (!isConnected || activeGroupId.isEmpty()) return
+        val gid = activeGroupId
+        ChatMessage.myUserId = api.userId ?: ""
+        val myId = api.userId ?: ""
+        val now = System.currentTimeMillis() / 1000.0
+        groupMessages.add(ChatMessage(myId, gid, text, now, replyToText))
+        viewModelScope.launch {
+            try {
+                val sm = api.sendGroupMessage(gid, text, replyToText)
+                groupMessages.removeAll { it.ts == now && it.fromUserId == myId }
+                groupMessages.add(ChatMessage(sm.fromUserId, sm.groupId, sm.text, sm.ts, sm.replyToText))
+                groupMessages.sortBy { it.ts }
+                lastGroupPoll = sm.ts
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun pollCycle() {
+        if (!isConnected) return
+        viewModelScope.launch {
+            try {
+                api.updateLocation(myOrigin.lat, myOrigin.lon, myOrigin.name)
+                if (iAmOpen) api.upsertIntent(myOrigin, myDest, myComfortKm, iAmOpen)
+                serverPending = api.pendingMatches()
+                serverIntents = api.searchIntents(myOrigin, myDest, myComfortKm, search.verifiedOnly, search.sameGenderOnly)
+            } catch (_: Exception) {}
+        }
+    }
 }
