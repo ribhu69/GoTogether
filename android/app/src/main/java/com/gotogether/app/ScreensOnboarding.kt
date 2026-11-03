@@ -33,7 +33,6 @@ fun OnboardingScreen(app: AppState) {
     var otpSent by remember { mutableStateOf(false) }
     var serverURL by remember { mutableStateOf(app.api.baseURL) }
     var useServer by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
 
     Column(
         Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -72,8 +71,14 @@ fun OnboardingScreen(app: AppState) {
                     otpSent -> {
                         OutlinedTextField(otp, { otp = it }, label = { Text("OTP (demo: 123456)") }, modifier = Modifier.fillMaxWidth())
                         Button({
-                            if (useServer) scope.launch { app.api.baseURL = serverURL; app.verifyPhoneOnServer(otp) {} }
-                            else app.phoneVerified = otp == "123456"
+                            if (otp.isBlank()) return@Button
+                            if (useServer) {
+                                app.api.baseURL = serverURL
+                                if (!app.isConnected) app.registerWithServer { ok -> if (ok) app.verifyPhoneOnServer(otp) {} }
+                                else app.verifyPhoneOnServer(otp) {}
+                            } else {
+                                app.phoneVerified = otp == "123456"
+                            }
                         }) { Text("Verify OTP") }
                     }
                     else -> Button({ otpSent = true }, enabled = app.phone.length >= 8) { Text("Send OTP") }
@@ -93,8 +98,10 @@ fun OnboardingScreen(app: AppState) {
                 OutlinedTextField(app.idLast4, { app.idLast4 = it }, label = { Text("Last 4 digits") }, modifier = Modifier.fillMaxWidth())
                 if (app.idVerified) Text("✓ ID + selfie verified", color = Green)
                 else Button({
-                    if (useServer) scope.launch { app.verifyIdOnServer(app.idLast4) {} }
-                    else app.idVerified = app.idLast4.length == 4
+                    if (useServer) {
+                        if (!app.isConnected) app.registerWithServer { ok -> if (ok) app.verifyIdOnServer(app.idLast4) {} }
+                        else app.verifyIdOnServer(app.idLast4) {}
+                    } else app.idVerified = app.idLast4.length == 4
                 }, enabled = app.phoneVerified) { Text("Simulate ID + selfie check") }
                 Text("Demo only. Production: DigiLocker / e-KYC plus liveness selfie.", style = MaterialTheme.typography.bodySmall)
             }

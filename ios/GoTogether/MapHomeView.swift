@@ -163,7 +163,7 @@ struct MapHomeView: View {
                         }
                         .padding(.horizontal, 12).padding(.vertical, 10)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.plain).contentShape(Rectangle())
                     if item != filtered.last { Divider().padding(.leading, 12) }
                 }
 
@@ -199,7 +199,7 @@ struct MapHomeView: View {
                                 }
                                 .padding(.horizontal, 12).padding(.vertical, 10)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.plain).contentShape(Rectangle())
                         }
                     }
                 }
@@ -366,7 +366,7 @@ struct MapHomeView: View {
                             }
                             .padding(.horizontal, 12).padding(.vertical, 10)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.plain).contentShape(Rectangle())
                         if place.id != recents.last?.id {
                             Divider().padding(.leading, 12)
                         }
@@ -388,7 +388,7 @@ struct MapHomeView: View {
                         }
                         .padding(.horizontal, 12).padding(.vertical, 10)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.plain).contentShape(Rectangle())
                 }
             }
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -426,7 +426,7 @@ struct MapHomeView: View {
                         }
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.plain).contentShape(Rectangle())
                 Spacer()
 
                 // Recenter
@@ -781,7 +781,7 @@ struct GoTogetherMap: View {
         Map(position: $position, interactionModes: .all) {
             UserAnnotation()
             Annotation("You", coordinate: app.myOrigin.coord) {
-                ProfileImageView(imageData: app.profileImageData, size: 36,
+                ProfileImageView(imageData: app.profileImageData, size: 28,
                                  fallbackIcon: "person.circle.fill", fallbackColor: .blue)
             }
             if app.myDest.id != app.myOrigin.id {

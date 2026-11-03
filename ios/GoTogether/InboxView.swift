@@ -65,6 +65,7 @@ struct InboxView: View {
                 conversationRow(conv)
             }
             .buttonStyle(.plain)
+            .contentShape(Rectangle())
         }
     }
 

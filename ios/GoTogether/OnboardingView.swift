@@ -146,6 +146,7 @@ struct OnboardingView: View {
                     HStack {
                         TextField("OTP", text: $otp).keyboardType(.numberPad)
                         Button("Verify") { verifyPhone() }
+                            .disabled(otp.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                             .buttonStyle(.borderedProminent).controlSize(.small)
                     }
                     Text("Demo OTP: 123456").font(.caption).foregroundStyle(.secondary)
@@ -302,6 +303,7 @@ struct OnboardingView: View {
     }
 
     private func verifyPhone() {
+        guard !otp.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         if useServer {
             Task { await app.verifyPhoneOnServer(otp) }
         } else {
