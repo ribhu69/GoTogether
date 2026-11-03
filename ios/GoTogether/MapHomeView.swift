@@ -12,7 +12,6 @@ struct MapHomeView: View {
     @State private var searchText = ""
     @State private var searchResults: [MKMapItem] = []
     @State private var isSearching = false
-    @State private var showRideApps = false
     @State private var hasInitialCenter = false
     @State private var myRoute: MKRoute?
     @State private var peerRoutes: [String: MKRoute] = [:]
@@ -36,8 +35,7 @@ struct MapHomeView: View {
             .sheet(isPresented: $showSheet) { sheetContent }
             .sheet(item: $tappedIntent) { intentDetail($0) }
             .sheet(item: $selectedPeer) { PeerChatSheet(peer: $0) }
-            .sheet(isPresented: $showRideApps) { rideAppsSheet }
-        .sheet(isPresented: $showGroupCreate) { GroupCreateSheet() }
+            .sheet(isPresented: $showGroupCreate) { GroupCreateSheet() }
     }
 
     private func setup(app: AppState) {
@@ -405,11 +403,6 @@ struct MapHomeView: View {
         return VStack(spacing: 0) {
             Divider()
 
-            // Ride-hailing quick actions
-            if app.myDest.id != app.myOrigin.id && app.myDest.id != "BLR" {
-                rideHailStrip
-            }
-
             HStack(spacing: 12) {
                 Button {
                     isSearching = true
@@ -459,73 +452,6 @@ struct MapHomeView: View {
             }
             .padding(.horizontal, 16).padding(.vertical, 10)
             .background(.regularMaterial)
-        }
-    }
-
-    // MARK: - Ride-hailing strip
-
-    private var rideHailStrip: some View {
-        HStack(spacing: 8) {
-            Text("Book a cab:").font(.caption.weight(.medium)).foregroundStyle(.secondary)
-
-            ForEach(RideHailing.apps, id: \.name) { ra in
-                Button {
-                    RideHailing.open(ra, from: app.myOrigin, to: app.myDest)
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "car.fill")
-                        Text(ra.name)
-                    }
-                    .font(.caption.weight(.medium))
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(Color(hex: ra.color) ?? .blue, in: Capsule())
-                    .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-            }
-
-            Button { showRideApps = true } label: {
-                Image(systemName: "ellipsis").font(.caption)
-                    .padding(.horizontal, 10).padding(.vertical, 6)
-                    .background(.quaternary, in: Capsule())
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 16).padding(.vertical, 6)
-        .background(.ultraThinMaterial)
-    }
-
-    private var rideAppsSheet: some View {
-        NavigationStack {
-            List {
-                Section("Book a ride to \(app.myDest.name)") {
-                    ForEach(RideHailing.apps, id: \.name) { ra in
-                        Button {
-                            RideHailing.open(ra, from: app.myOrigin, to: app.myDest)
-                        } label: {
-                            HStack {
-                                Label(ra.name, systemImage: "car.fill")
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                Image(systemName: "arrow.up.forward.app")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-                Section {
-                    Button {
-                        RideHailing.openUberUniversal(from: app.myOrigin, to: app.myDest)
-                    } label: {
-                        Label("Uber (web fallback)", systemImage: "globe")
-                    }
-                } footer: {
-                    Text("Opens the ride-hailing app with pickup and drop-off pre-filled. Falls back to App Store if not installed.")
-                }
-            }
-            .navigationTitle("Book a Cab")
-            .navigationBarTitleDisplayMode(.inline)
-            .presentationDetents([.medium])
         }
     }
 
@@ -829,13 +755,6 @@ struct MapHomeView: View {
                         }
                     } label: {
                         Label("Chat with \(i.rider.name.components(separatedBy: " ").first ?? i.rider.name)", systemImage: "bubble.left.and.bubble.right")
-                    }
-                }
-                Section {
-                    Button {
-                        RideHailing.openUberUniversal(from: app.myOrigin, to: i.rider.destination)
-                    } label: {
-                        Label("Open Uber to co-rider's destination", systemImage: "car.fill")
                     }
                 }
             }

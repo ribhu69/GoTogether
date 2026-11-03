@@ -38,18 +38,7 @@ struct ChatView: View {
                         LazyVStack(spacing: 6) {
                             ForEach(peerMessages) { msg in
                                 ChatBubble(msg: msg)
-                                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                                        Button { replyTarget = msg; focused = true } label: {
-                                            Label("Reply", systemImage: "arrow.turn.down.left")
-                                        }
-                                        .tint(.blue)
-                                    }
-                                    .contextMenu {
-                                        Button { replyTarget = msg; focused = true } label: {
-                                            Label("Reply", systemImage: "arrow.turn.down.left")
-                                        }
-                                    }
-                                    .onLongPressGesture(minimumDuration: 0.5) {
+                                    .swipeToReply {
                                         replyTarget = msg
                                         focused = true
                                     }
