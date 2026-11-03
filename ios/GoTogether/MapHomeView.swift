@@ -18,7 +18,7 @@ struct MapHomeView: View {
     @State private var peerRoutes: [String: MKRoute] = [:]
     @State private var showGroupCreate = false  // peerId → route
 
-    private let originSpanKm: Double = 0.5
+    private let originSpanKm: Double = 1.0
 
     var body: some View {
         @Bindable var app = app

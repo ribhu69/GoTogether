@@ -328,15 +328,24 @@ td:first-child{{color:#e0e0e0;font-weight:500}}
             if not i["isOpen"] or i["userId"] == uid: continue
             if verified and not i["idVerified"]: continue
             if same_gender and my and i["userGender"] != my["gender"]: continue
-            # Hide blocked users and users who blocked us
             if i["userId"] in blocked.get(uid, set()): continue
             if uid in blocked.get(i["userId"], set()): continue
-            origin_gap = haversine_km(origin, i["origin"])
-            if origin_gap > 0.5: continue
+            # Use live GPS as intent origin if fresher than 60s, so users who
+            # registered on one device and moved can still be discovered.
+            intent_origin = i["origin"]
+            live_loc = locations.get(i["userId"])
+            if live_loc and now - live_loc.get("ts", 0) <= 60:
+                intent_origin = {"lat": live_loc["lat"], "lon": live_loc["lon"],
+                                 "name": live_loc.get("name", "")}
+            origin_gap = haversine_km(origin, intent_origin)
+            if origin_gap > 1.0: continue   # 1 km origin tolerance
             dest_gap = haversine_km(dest, i["dest"])
             if dest_gap > comfort: continue
             if haversine_km(i["dest"], dest) > i["comfortRadiusKm"]: continue
-            results.append({**i, "originGapKm": round(origin_gap, 3), "destGapKm": round(dest_gap, 3)})
+            # Return the actual intent origin + live origin gap
+            results.append({**i, "originGapKm": round(origin_gap, 3),
+                            "destGapKm": round(dest_gap, 3),
+                            "liveOrigin": intent_origin != i["origin"]})
 
         results.sort(key=lambda x: x["destGapKm"])
 
@@ -814,10 +823,16 @@ td:first-child{{color:#e0e0e0;font-weight:500}}
     def _find_compatible(self, intent: dict) -> list:
         """Return intents that would match this one (two-way check)."""
         if not intent["isOpen"]: return []
+        now = time.time()
         results = []
         for i in intents.values():
             if i["userId"] == intent["userId"] or not i["isOpen"]: continue
-            if haversine_km(intent["origin"], i["origin"]) > 0.5: continue
+            # Use live GPS if fresher
+            i_origin = i["origin"]
+            live_loc = locations.get(i["userId"])
+            if live_loc and now - live_loc.get("ts", 0) <= 60:
+                i_origin = {"lat": live_loc["lat"], "lon": live_loc["lon"]}
+            if haversine_km(intent["origin"], i_origin) > 1.0: continue
             if haversine_km(intent["dest"], i["dest"]) > intent["comfortRadiusKm"]: continue
             if haversine_km(i["dest"], intent["dest"]) > i["comfortRadiusKm"]: continue
             results.append({**i, "destGapKm": round(haversine_km(intent["dest"], i["dest"]), 3)})

@@ -44,6 +44,15 @@ struct ChatView: View {
                                         }
                                         .tint(.blue)
                                     }
+                                    .contextMenu {
+                                        Button { replyTarget = msg; focused = true } label: {
+                                            Label("Reply", systemImage: "arrow.turn.down.left")
+                                        }
+                                    }
+                                    .onLongPressGesture(minimumDuration: 0.5) {
+                                        replyTarget = msg
+                                        focused = true
+                                    }
                             }
                         }
                         .padding(.horizontal, 12)

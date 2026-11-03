@@ -51,7 +51,7 @@ enum MatchingEngine {
                 let originGap = Geo.km(myOrigin, i.origin)
                 let destGap = Geo.km(myDest, i.rider.destination)
                 // Both riders' comfort radii must accommodate each other's destinations.
-                return originGap <= 0.5 && destGap <= myRadiusKm
+                return originGap <= 1.0 && destGap <= myRadiusKm
                     && Geo.km(i.rider.destination, myDest) <= i.comfortRadiusKm
             }
             .sorted { Geo.km(myDest, $0.rider.destination) < Geo.km(myDest, $1.rider.destination) }
