@@ -323,6 +323,17 @@ td:first-child{{color:#e0e0e0;font-weight:500}}
     def update_location(self, b):
         uid = b.get("userId", "")
         if not uid: return self._respond(*err("missing userId"))
+        # Auto-create user if unknown (server restart / stale userId)
+        if uid not in users:
+            users[uid] = {
+                "userId": uid,
+                "name": b.get("name", uid[:8]),
+                "phone": "", "gender": "other",
+                "idType": "", "idLast4": "",
+                "emergencyName": "", "emergencyPhone": "",
+                "phoneVerified": True, "idVerified": True,
+                "createdAt": time.time(),
+            }
         locations[uid] = {
             "lat": b["lat"], "lon": b["lon"],
             "name": b.get("name", ""),

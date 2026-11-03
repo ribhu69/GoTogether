@@ -196,9 +196,10 @@ final class AppState {
 
     func syncLocation() {
         guard isConnected else { return }
+        let locName = name.isEmpty ? myOrigin.name : name
         Task {
             _ = try? await api.updateLocation(
-                lat: myOrigin.lat, lon: myOrigin.lon, name: myOrigin.name)
+                lat: myOrigin.lat, lon: myOrigin.lon, name: locName)
         }
     }
 
