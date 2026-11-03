@@ -47,11 +47,7 @@ enum MatchingEngine {
             .filter { $0.isOpen }
             .filter { i in !verifiedOnly || i.rider.idVerified }
             .filter { i in !sameGenderOnly || i.rider.gender == myGender }
-            .filter { i in
-                let destGap = Geo.km(myDest, i.rider.destination)
-                return destGap <= myRadiusKm
-                    && Geo.km(i.rider.destination, myDest) <= i.comfortRadiusKm
-            }
+            .filter { i in Geo.km(myDest, i.rider.destination) <= myRadiusKm }
             .sorted { Geo.km(myDest, $0.rider.destination) < Geo.km(myDest, $1.rider.destination) }
     }
 }

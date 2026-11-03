@@ -167,6 +167,8 @@ class Handler(BaseHTTPRequestHandler):
     def _dashboard_html(self) -> str:
         now = time.time()
         rows = []
+        loc_data = []  # for minimap
+        msg_feed = []  # for message activity
         for uid, u in users.items():
             loc = locations.get(uid, {})
             intent = intents.get(uid, {})
@@ -182,46 +184,155 @@ class Handler(BaseHTTPRequestHandler):
                 <td style="color:{status_color}">{status} {f'{loc_age}s' if loc_age is not None else ''}</td>
                 <td style="font-family:'SF Mono',monospace;font-size:11px;color:#808080">{uid[:8]}</td>
             </tr>""")
+            # Collect for minimap
+            if loc and fresh:
+                dest = intent.get("dest", {})
+                loc_data.append({
+                    "name": u["name"], "lat": loc["lat"], "lon": loc["lon"],
+                    "destLat": dest.get("lat"), "destLon": dest.get("lon"),
+                    "destName": dest.get("name", ""), "open": intent.get("isOpen", False) if intent else False,
+                })
+
+        # Message activity feed (last 10 messages across all chats)
+        all_msgs = []
+        for cid, msgs in messages.items():
+            for m in msgs[-5:]:  # last 5 per chat
+                all_msgs.append((m["ts"], cid, m))
+        all_msgs.sort(key=lambda x: x[0], reverse=True)
+        for ts, cid, m in all_msgs[:10]:
+            ids = cid.split("-")
+            sender = users.get(m["fromUserId"], {}).get("name", m["fromUserId"][:8])
+            to = users.get(m["toUserId"], {}).get("name", m["toUserId"][:8]) if len(ids) == 2 else "group"
+            t = time.strftime("%H:%M:%S", time.localtime(ts))
+            msg_feed.append(f'<div class="msg"><span class="t">{t}</span> <b>{sender}</b> → {to}: {m["text"][:60]}</div>')
+
+        loc_json = json.dumps(loc_data)
+
         return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GoTogether · Dashboard</title>
 <style>
 :root{{--bg:#1e1e1e;--surface:#252526;--border:#3e3e42;--text:#d4d4d4;--muted:#808080;--accent:#4ec9b0;--warn:#ce9178;--err:#f44747;--hl:#569cd6}}
 *{{box-sizing:border-box;margin:0;padding:0}}
-body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);padding:24px;min-height:100vh}}
-h1{{font-size:20px;font-weight:600;color:#e0e0e0;margin-bottom:2px}}
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);padding:20px;min-height:100vh}}
+h1{{font-size:20px;font-weight:600;color:#e0e0e0}}
 h1 span{{color:var(--accent)}}
-.sub{{color:var(--muted);font-size:12px;margin-bottom:24px}}
-.cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:24px}}
-.card{{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 20px;text-align:center}}
-.card .num{{font-size:28px;font-weight:700;color:var(--accent);line-height:1.2}}
-.card .label{{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:4px}}
+.sub{{color:var(--muted);font-size:12px;margin-bottom:20px}}
+.grid{{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}}
+@media(max-width:800px){{.grid{{grid-template-columns:1fr}}}}}}
+.panel{{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}}
+.panel h3{{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}}
+.cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px}}
+.card{{background:#2d2d30;border-radius:6px;padding:12px 16px;text-align:center}}
+.card .num{{font-size:24px;font-weight:700;color:var(--accent);line-height:1.2}}
+.card .label{{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}}
+canvas{{width:100%;height:300px;background:#1a1a1a;border-radius:6px;display:block}}
 .table-wrap{{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}}
 table{{width:100%;border-collapse:collapse}}
-th{{background:#2d2d30;color:var(--muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}}
-td{{padding:9px 14px;font-size:13px;color:#cccccc;border-bottom:1px solid #2d2d30}}
+th{{background:#2d2d30;color:var(--muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}}
+td{{padding:7px 12px;font-size:12px;color:#cccccc;border-bottom:1px solid #2d2d30}}
 tr:last-child td{{border-bottom:none}}
 tr:hover td{{background:#2a2d2e}}
 td:first-child{{color:#e0e0e0;font-weight:500}}
+.msg-feed{{max-height:260px;overflow-y:auto;font-size:12px}}
+.msg{{padding:6px 0;border-bottom:1px solid #2d2d30;color:#aaa}}
+.msg:last-child{{border-bottom:none}}
+.msg .t{{color:var(--muted);font-size:10px}}
+.msg b{{color:var(--accent)}}
 .footer{{margin-top:16px;font-size:11px;color:var(--muted)}}
 .footer span{{color:var(--accent)}}
+.match-indicator{{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}}
 </style></head>
 <body>
 <h1>🚕 GoTogether <span>Dashboard</span></h1>
-<p class="sub">Live · {time.strftime('%H:%M:%S', time.localtime(now))} · auto‑refresh 3s · long-poll chat</p>
-<div class="cards">
+<p class="sub">Live · {time.strftime('%H:%M:%S', time.localtime(now))} · 3s refresh · {len(loc_data)} on map</p>
+
+<div class="grid">
+<div class="panel">
+    <h3>📍 Live Map</h3>
+    <canvas id="map"></canvas>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">
+        <span style="color:#569cd6">●</span> Rider &nbsp;
+        <span style="color:#f44747">◆</span> Destination &nbsp;
+        <span style="color:#4ec9b0">—</span> Route &nbsp;
+        <span style="color:#ce9178">—</span> Within comfort
+    </div>
+</div>
+<div class="panel">
+    <h3>💬 Live Messages</h3>
+    <div class="msg-feed">{''.join(msg_feed) if msg_feed else '<div class="msg" style="color:var(--muted)">No messages yet — start chatting on a device</div>'}</div>
+</div>
+</div>
+
+<div class="cards" style="margin-bottom:16px">
 <div class="card"><div class="num">{len(users)}</div><div class="label">Users</div></div>
 <div class="card"><div class="num">{len([i for i in intents.values() if i['isOpen']])}</div><div class="label">Open</div></div>
-<div class="card"><div class="num">{len(locations)}</div><div class="label">Locations</div></div>
+<div class="card"><div class="num">{len(locations)}</div><div class="label">GPS</div></div>
 <div class="card"><div class="num">{len(messages)}</div><div class="label">Chats</div></div>
 <div class="card"><div class="num">{len(matches)}</div><div class="label">Matches</div></div>
+<div class="card"><div class="num">{len(groups)}</div><div class="label">Groups</div></div>
 </div>
+
 <div class="table-wrap">
 <table><thead><tr><th>Name</th><th>Phone</th><th>Destination</th><th>Intent</th><th>GPS</th><th>User ID</th></tr></thead>
-<tbody>{''.join(rows) if rows else '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:30px">No users registered — pick a destination on a device</td></tr>'}</tbody></table>
+<tbody>{''.join(rows) if rows else '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:30px">No users registered</td></tr>'}</tbody></table>
 </div>
-<p class="footer"><span>●</span> fresh ≤60s &nbsp; <span style="color:var(--warn)">○</span> stale &nbsp; <span style="color:var(--muted)">—</span> no location</p>
-<script>setTimeout(()=>location.reload(),3000)</script>
+
+<p class="footer"><span>●</span> fresh ≤60s &nbsp; <span style="color:var(--warn)">○</span> stale &nbsp; <span style="color:var(--muted)">—</span> no GPS &nbsp;|&nbsp; <span style="color:#569cd6">●</span> on map &nbsp; <span style="color:#f44747">◆</span> destination</p>
+
+<script>
+const data = {loc_json};
+const canvas = document.getElementById('map');
+const ctx = canvas.getContext('2d');
+function draw() {{
+    const W = canvas.width = canvas.offsetWidth * 2;
+    const H = canvas.height = canvas.offsetHeight * 2;
+    ctx.scale(2, 2);
+    const cw = canvas.offsetWidth, ch = canvas.offsetHeight;
+    ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, cw, ch);
+    if (!data.length) {{ ctx.fillStyle = '#808080'; ctx.font = '13px sans-serif';
+        ctx.textAlign = 'center'; ctx.fillText('No GPS data — open the app on a device', cw/2, ch/2); return; }}
+    // Find bounds
+    let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+    data.forEach(d => {{
+        minLat = Math.min(minLat, d.lat); maxLat = Math.max(maxLat, d.lat);
+        minLon = Math.min(minLon, d.lon); maxLon = Math.max(maxLon, d.lon);
+        if (d.destLat) {{ minLat = Math.min(minLat, d.destLat); maxLat = Math.max(maxLat, d.destLat);
+                          minLon = Math.min(minLon, d.destLon); maxLon = Math.max(maxLon, d.destLon); }}
+    }});
+    const pad = 0.15, latR = (maxLat - minLat) || 0.01, lonR = (maxLon - minLon) || 0.01;
+    minLat -= latR * pad; maxLat += latR * pad; minLon -= lonR * pad; maxLon += lonR * pad;
+    function px(lat, lon) {{ return [(lon - minLon) / lonR * cw, (maxLat - lat) / (maxLat - minLat) * ch]; }}
+    // Draw routes + comfort circles
+    data.forEach(d => {{
+        if (d.destLat && d.open) {{
+            const [x1, y1] = px(d.lat, d.lon);
+            const [x2, y2] = px(d.destLat, d.destLon);
+            ctx.strokeStyle = '#4ec9b0'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.setLineDash([]);
+        }}
+    }});
+    // Draw destination dots
+    data.forEach(d => {{
+        if (d.destLat) {{
+            const [x, y] = px(d.destLat, d.destLon);
+            ctx.fillStyle = '#f44747'; ctx.beginPath();
+            ctx.moveTo(x, y-8); ctx.lineTo(x+6, y+6); ctx.lineTo(x-6, y+6); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#ce9178'; ctx.font = '9px sans-serif'; ctx.fillText(d.destName.slice(0,15), x+8, y+4);
+        }}
+    }});
+    // Draw rider dots
+    data.forEach(d => {{
+        const [x, y] = px(d.lat, d.lon);
+        ctx.fillStyle = '#569cd6'; ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = '#d4d4d4'; ctx.font = 'bold 10px sans-serif'; ctx.fillText(d.name.slice(0,12), x+9, y+4);
+    }});
+}}
+draw();
+window.addEventListener('resize', draw);
+setTimeout(()=>location.reload(),3000);
+</script>
 </body></html>"""
 
     def me(self, qs):
@@ -332,15 +443,7 @@ td:first-child{{color:#e0e0e0;font-weight:500}}
             if uid in blocked.get(i["userId"], set()): continue
             dest_gap = haversine_km(dest, i["dest"])
             if dest_gap > comfort: continue
-            if haversine_km(i["dest"], dest) > i["comfortRadiusKm"]: continue
-            # Use live GPS for display gap, but don't filter by origin
-            intent_origin = i["origin"]
-            live_loc = locations.get(i["userId"])
-            if live_loc and now - live_loc.get("ts", 0) <= 60:
-                intent_origin = {"lat": live_loc["lat"], "lon": live_loc["lon"]}
-            origin_gap = haversine_km(origin, intent_origin)
-            results.append({**i, "originGapKm": round(origin_gap, 3),
-                            "destGapKm": round(dest_gap, 3)})
+            results.append({**i, "destGapKm": round(dest_gap, 3)})
 
         results.sort(key=lambda x: x["destGapKm"])
 
@@ -823,7 +926,6 @@ td:first-child{{color:#e0e0e0;font-weight:500}}
         for i in intents.values():
             if i["userId"] == intent["userId"] or not i["isOpen"]: continue
             if haversine_km(intent["dest"], i["dest"]) > intent["comfortRadiusKm"]: continue
-            if haversine_km(i["dest"], intent["dest"]) > i["comfortRadiusKm"]: continue
             results.append({**i, "destGapKm": round(haversine_km(intent["dest"], i["dest"]), 3)})
         return sorted(results, key=lambda x: x["destGapKm"])
 
