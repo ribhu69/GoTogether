@@ -67,9 +67,8 @@ object MatchingEngine {
             .filter { i -> !verifiedOnly || i.rider.idVerified }
             .filter { i -> !sameGenderOnly || i.rider.gender == myGender }
             .filter { i ->
-                val originGap = Geo.km(myOrigin, i.origin)
                 val destGap = Geo.km(myDest, i.rider.destination)
-                originGap <= 0.5 && destGap <= myRadiusKm &&
+                destGap <= myRadiusKm &&
                     Geo.km(i.rider.destination, myDest) <= i.comfortRadiusKm
             }
             .sortedBy { Geo.km(myDest, it.rider.destination) }

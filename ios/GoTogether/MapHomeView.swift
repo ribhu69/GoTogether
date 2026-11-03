@@ -319,9 +319,7 @@ struct MapHomeView: View {
         }
     }
 
-    private var openVisible: [TravelIntent] {
-        app.openIntents.filter { Geo.km(app.myOrigin, $0.origin) <= originSpanKm }
-    }
+    private var openVisible: [TravelIntent] { app.openIntents }
 
     private var statusLabel: String {
         if !app.hasDestination {
