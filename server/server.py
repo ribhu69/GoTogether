@@ -135,36 +135,43 @@ class Handler(BaseHTTPRequestHandler):
             intent = intents.get(uid, {})
             loc_age = round(now - loc["ts"], 1) if loc else None
             fresh = loc_age is not None and loc_age <= 30
+            status = "●" if fresh else ("○" if loc_age is not None else "—")
+            status_color = "#4ec9b0" if fresh else ("#ce9178" if loc_age is not None else "#808080")
             rows.append(f"""<tr>
                 <td>{u['name']}</td>
-                <td class="{'green' if u['phoneVerified'] else 'red'}">{'✓' if u['phoneVerified'] else '✗'}</td>
+                <td style="color:{'#4ec9b0' if u['phoneVerified'] else '#f44747'}">{'✓' if u['phoneVerified'] else '✗'}</td>
                 <td>{intent.get('dest',{}).get('name','—') if intent else '—'}</td>
-                <td class="{'green' if intent and intent['isOpen'] else ''}">{'Open' if intent and intent['isOpen'] else 'Closed'}</td>
-                <td class="{'green' if fresh else 'orange'}">{f'{loc_age}s' if loc_age is not None else '—'}</td>
-                <td class="mono">{uid[:8]}</td>
+                <td style="color:{'#4ec9b0' if intent and intent['isOpen'] else '#808080'}">{'Open' if intent and intent['isOpen'] else 'Closed'}</td>
+                <td style="color:{status_color}">{status} {f'{loc_age}s' if loc_age is not None else ''}</td>
+                <td style="font-family:'SF Mono',monospace;font-size:11px;color:#808080">{uid[:8]}</td>
             </tr>""")
         return f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>GoTogether Dashboard</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GoTogether · Dashboard</title>
 <style>
-  *{{box-sizing:border-box}} body{{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:20px;background:#f0f2f5;color:#1a1a2e}}
-  h1{{margin:0 0 4px;font-size:24px}} .sub{{color:#666;margin:0 0 20px;font-size:13px}}
-  .cards{{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px}}
-  .card{{background:#fff;border-radius:12px;padding:18px 24px;min-width:110px;text-align:center;box-shadow:0 2px 8px #0000000d}}
-  .card .num{{font-size:32px;font-weight:700;color:#1a1a2e}}
-  .card .label{{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-top:4px}}
-  table{{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px #0000000d}}
-  th,td{{padding:12px 16px;text-align:left;font-size:13px}}
-  th{{background:#f7f8fa;font-weight:600;color:#555;text-transform:uppercase;font-size:11px;letter-spacing:.3px}}
-  tr:not(:last-child) td{{border-bottom:1px solid #f0f0f0}}
-  td{{color:#333;font-weight:450}}
-  td:first-child{{font-weight:600;color:#1a1a2e}}
-  .green{{color:#2e7d32!important;font-weight:600}} .red{{color:#c62828!important}} .orange{{color:#e65100!important}}
-  .mono{{font-family:'SF Mono',Monaco,monospace;font-size:11px;color:#888}}
-  @media(prefers-color-scheme:dark){{body{{background:#0f0f1a;color:#e0e0e0}} .card{{background:#1a1a2e}} th{{background:#16213e;color:#aaa}} td{{color:#ccc}} td:first-child{{color:#e0e0e0}} tr:not(:last-child) td{{border-color:#2a2a3e}} .sub{{color:#999}}}}
+:root{{--bg:#1e1e1e;--surface:#252526;--border:#3e3e42;--text:#d4d4d4;--muted:#808080;--accent:#4ec9b0;--warn:#ce9178;--err:#f44747;--hl:#569cd6}}
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);padding:24px;min-height:100vh}}
+h1{{font-size:20px;font-weight:600;color:#e0e0e0;margin-bottom:2px}}
+h1 span{{color:var(--accent)}}
+.sub{{color:var(--muted);font-size:12px;margin-bottom:24px}}
+.cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:24px}}
+.card{{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 20px;text-align:center}}
+.card .num{{font-size:28px;font-weight:700;color:var(--accent);line-height:1.2}}
+.card .label{{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:4px}}
+.table-wrap{{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}}
+table{{width:100%;border-collapse:collapse}}
+th{{background:#2d2d30;color:var(--muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}}
+td{{padding:9px 14px;font-size:13px;color:#cccccc;border-bottom:1px solid #2d2d30}}
+tr:last-child td{{border-bottom:none}}
+tr:hover td{{background:#2a2d2e}}
+td:first-child{{color:#e0e0e0;font-weight:500}}
+.footer{{margin-top:16px;font-size:11px;color:var(--muted)}}
+.footer span{{color:var(--accent)}}
 </style></head>
 <body>
-<h1>🚕 GoTogether</h1><p class="sub">Dashboard · auto-refresh 3s · {now:.0f}</p>
+<h1>🚕 GoTogether <span>Dashboard</span></h1>
+<p class="sub">Live · {time.strftime('%H:%M:%S', time.localtime(now))} · auto‑refresh 3s</p>
 <div class="cards">
 <div class="card"><div class="num">{len(users)}</div><div class="label">Users</div></div>
 <div class="card"><div class="num">{len([i for i in intents.values() if i['isOpen']])}</div><div class="label">Open</div></div>
@@ -172,9 +179,11 @@ class Handler(BaseHTTPRequestHandler):
 <div class="card"><div class="num">{len(messages)}</div><div class="label">Chats</div></div>
 <div class="card"><div class="num">{len(matches)}</div><div class="label">Matches</div></div>
 </div>
-<table><tr><th>Name</th><th>Phone</th><th>Dest</th><th>Intent</th><th>GPS</th><th>ID</th></tr>
-{''.join(rows) if rows else '<tr><td colspan="6" style="color:#999;text-align:center;padding:30px">No users registered yet</td></tr>'}
-</table>
+<div class="table-wrap">
+<table><thead><tr><th>Name</th><th>Phone</th><th>Destination</th><th>Intent</th><th>GPS</th><th>User ID</th></tr></thead>
+<tbody>{''.join(rows) if rows else '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:30px">No users registered — pick a destination on a device</td></tr>'}</tbody></table>
+</div>
+<p class="footer"><span>●</span> fresh ≤30s &nbsp; <span style="color:var(--warn)">○</span> stale &nbsp; <span style="color:var(--muted)">—</span> no location</p>
 <script>setTimeout(()=>location.reload(),3000)</script>
 </body></html>"""
 
@@ -408,18 +417,25 @@ class Handler(BaseHTTPRequestHandler):
             return self._respond(*err("missing userId or peerId"))
         try:
             since = float(qs.get("since", ["0"])[0])
+            limit = int(qs.get("limit", ["50"])[0])
+            before = float(qs.get("before", ["0"])[0]) or None
         except ValueError:
-            return self._respond(*err("bad since"))
+            return self._respond(*err("bad params"))
         cid = self._chat_id(uid, peer)
-        # Merge in-memory + file (pick whichever has more messages)
         mem = messages.get(cid, [])
         file_msgs = _load_messages(cid)
         all_msgs = file_msgs if len(file_msgs) >= len(mem) else mem
-        # Sync in-memory with file (for restarts)
         if all_msgs and cid not in messages:
             messages[cid] = all_msgs
-        result = [m for m in all_msgs if m["ts"] > since]
-        self._respond(*ok({"messages": result}))
+        # Filter: ts > since, and optionally ts < before (pagination)
+        filtered = [m for m in all_msgs if m["ts"] > since]
+        if before:
+            filtered = [m for m in filtered if m["ts"] < before]
+        # Newest first for pagination (client reverses for display)
+        filtered.sort(key=lambda m: m["ts"], reverse=True)
+        has_more = len(filtered) > limit
+        page = filtered[:limit]
+        self._respond(*ok({"messages": list(reversed(page)), "hasMore": has_more}))
 
     def inbox(self, qs):
         """Return all conversations with new messages since `since`."""

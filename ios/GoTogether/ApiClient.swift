@@ -34,7 +34,7 @@ struct MatchesResponse: Codable { let matches: [ServerMatch] }
 
 // Chat
 struct ServerChatMessage: Codable { let fromUserId: String; let toUserId: String; let text: String; let ts: Double }
-struct MessagesResponse: Codable { let messages: [ServerChatMessage] }
+struct MessagesResponse: Codable { let messages: [ServerChatMessage]; let hasMore: Bool? }
 
 // Bulk inbox
 struct InboxConversation: Codable { let peerId: String; let peerName: String; let messages: [ServerChatMessage] }

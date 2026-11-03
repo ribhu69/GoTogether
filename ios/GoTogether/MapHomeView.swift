@@ -155,7 +155,7 @@ struct MapHomeView: View {
                 app.pollPending()
                 app.refreshIntents()
                 app.pollMessagesFromPeers()
-                try? await Task.sleep(for: .seconds(4))
+                try? await Task.sleep(for: .seconds(2))
             }
         }
         .sheet(isPresented: $showSheet) { sheetContent }
