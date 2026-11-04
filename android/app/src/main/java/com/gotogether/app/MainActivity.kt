@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
 fun Root(app: AppState) {
     var onboardingDone by remember { mutableStateOf(false) }
 
-    if (!app.onboarded && !onboardingDone) {
+    if (!onboardingDone) {
         OnboardingScreen(app, onDone = { onboardingDone = true })
         return
     }
