@@ -132,17 +132,16 @@ class AppState : ViewModel() {
     // ── Intents (server-first, Mock fallback) ──
 
     fun openIntents(): List<TravelIntent> {
-        if (isConnected && serverIntents.isNotEmpty()) return serverIntents.map(api::toTravelIntent)
-        return Mock.openIntents()
+        if (isConnected) return serverIntents.map(api::toTravelIntent)
+        return emptyList()
     }
 
     fun matchingOpenIntents(): List<TravelIntent> {
-        if (isConnected && serverIntents.isNotEmpty()) return serverIntents.map(api::toTravelIntent)
-        return MatchingEngine.findOpen(myOrigin, myDest, myComfortKm, Mock.openIntents(), gender,
-            verifiedOnly = search.verifiedOnly, sameGenderOnly = search.sameGenderOnly)
+        if (isConnected) return serverIntents.map(api::toTravelIntent)
+        return emptyList()
     }
 
-    fun matches() = MatchingEngine.find(search, Mock.riders(), gender)
+    fun matches() = emptyList<Match>()
 
     // ── Trip actions ──
 
@@ -414,6 +413,21 @@ class AppState : ViewModel() {
                 if (iAmOpen) api.upsertIntent(myOrigin, myDest, myComfortKm, iAmOpen)
                 serverPending = api.pendingMatches()
                 serverIntents = api.searchIntents(myOrigin, myDest, myComfortKm, search.verifiedOnly, search.sameGenderOnly)
+                pollMessagesFromPeers()
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun autoConnect() {
+        if (isConnected) return
+        if (name.isBlank() || phone.isBlank()) return
+        viewModelScope.launch {
+            try {
+                api.register(name, phone, gender.label.lowercase(), idType, idLast4, emergencyName, emergencyPhone)
+                // Auto-verify since this is a POC
+                api.verifyPhone("123456")
+                api.verifyId("1234")
+                phoneVerified = true; idVerified = true
             } catch (_: Exception) {}
         }
     }

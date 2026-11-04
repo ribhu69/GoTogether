@@ -56,6 +56,7 @@ import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
 import kotlin.math.cos
 import kotlin.math.sin
+import androidx.compose.material3.OutlinedTextField
 
 private val Green = Color(0xFF2E7D32)
 private const val ORIGIN_SPAN_KM = 0.5
@@ -131,16 +132,49 @@ fun MapHomeScreen(app: AppState, modifier: Modifier, onRequested: () -> Unit) {
     var sheetTab by rememberSaveable { mutableIntStateOf(0) }
     var menuExpanded by remember { mutableStateOf(false) }
     var tappedIntent by remember { mutableStateOf<TravelIntent?>(null) }
+    var showCoords by remember { mutableStateOf(false) }
+    var latText by remember { mutableStateOf(app.myOrigin.lat.toString()) }
+    var lonText by remember { mutableStateOf(app.myOrigin.lon.toString()) }
 
     // Server integration
     LaunchedEffect(Unit) { app.refreshIntents() }
     LaunchedEffect(app.search.verifiedOnly, app.search.sameGenderOnly) { app.refreshIntents() }
     LaunchedEffect(app.myDest, app.myComfortKm, app.iAmOpen) { app.syncIntent() }
     LaunchedEffect(Unit) {
-        while (true) { app.pollPending(); kotlinx.coroutines.delay(4000) }
+        app.autoConnect()
+        while (true) { app.pollCycle(); kotlinx.coroutines.delay(2000) }
     }
 
     // State changes trigger recomposition → map updates.
+
+    Box(Modifier.fillMaxSize()) {
+        // Coordinate overlay
+        if (!showCoords) {
+            TextButton(onClick = { showCoords = true; latText = app.myOrigin.lat.toString(); lonText = app.myOrigin.lon.toString() },
+                modifier = Modifier.padding(8.dp).align(Alignment.TopStart)) {
+                Text("📍 ${app.myOrigin.name}", maxLines = 1)
+            }
+        } else {
+        Card(Modifier.fillMaxWidth().padding(8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f))) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Set location", style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(latText, { latText = it }, Modifier.weight(1f), label = { Text("Lat") }, singleLine = true)
+                    OutlinedTextField(lonText, { lonText = it }, Modifier.weight(1f), label = { Text("Lon") }, singleLine = true)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button({
+                        latText.toDoubleOrNull()?.let { lat -> lonText.toDoubleOrNull()?.let { lon ->
+                            app.myOrigin = Place("custom", "Custom", lat, lon); showCoords = false
+                        } }
+                    }) { Text("Set") }
+                    TextButton({ showCoords = false }) { Text("Close") }
+                }
+            }
+        }
+    }
+    }
+
     OsmMap(
         modifier = modifier.fillMaxSize(),
         center = app.myOrigin.geoPoint,
@@ -325,5 +359,5 @@ private fun OpenIntentsTab(app: AppState, onDone: () -> Unit) {
             }
         }
     }
-}
     }
+}
