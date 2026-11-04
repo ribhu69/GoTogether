@@ -133,8 +133,11 @@ struct OnboardingView: View {
                 TextField("Full name", text: $app.name)
                     .textContentType(.name)
                 Picker("Gender", selection: $app.gender) {
-                    ForEach(Gender.allCases) { Text($0.rawValue).tag($0) }
+                    Label("Female", systemImage: "figure.dress").tag(Gender.female)
+                    Label("Male", systemImage: "figure.stand").tag(Gender.male)
+                    Label("Other", systemImage: "figure").tag(Gender.other)
                 }
+                .pickerStyle(.segmented)
                 TextField("Phone number", text: $app.phone)
                     .keyboardType(.phonePad)
                     .textContentType(.telephoneNumber)

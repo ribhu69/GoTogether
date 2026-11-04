@@ -2,8 +2,9 @@ package com.gotogether.app
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -27,6 +28,8 @@ fun OnboardingScreen(app: AppState, onDone: () -> Unit) {
     var otpSent by remember { mutableStateOf(false) }
     var serverURL by remember { mutableStateOf(app.api.baseURL) }
     var useServer by remember { mutableStateOf(false) }
+    var isConnecting by remember { mutableStateOf(false) }
+    var connectionFailed by remember { mutableStateOf(false) }
 
     fun canAdvance(): Boolean = when (step) {
         0 -> app.phoneVerified
@@ -36,7 +39,7 @@ fun OnboardingScreen(app: AppState, onDone: () -> Unit) {
         else -> false
     }
 
-    Column(Modifier.fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         // Header
         Spacer(Modifier.height(24.dp))
         Text("🚕", fontSize = 48.sp)
@@ -56,14 +59,34 @@ fun OnboardingScreen(app: AppState, onDone: () -> Unit) {
 
         // Connection status
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).clip(CircleShape)
-                .background(if (app.isConnected) Green else if (useServer) Color(0xFFFFA726) else Color.Gray))
-            Spacer(Modifier.width(6.dp))
-            Text(
-                if (app.isConnected) "Connected to server" else if (useServer) "Server: not connected" else "Offline mode",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (isConnecting) {
+                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(6.dp))
+                Text("Connecting…", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Box(Modifier.size(8.dp).clip(RoundedCornerShape(50))
+                    .background(if (app.isConnected) Green else if (connectionFailed) Red else if (useServer) Color(0xFFFFA726) else Color.Gray))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    if (app.isConnected) "✓ Connected"
+                    else if (connectionFailed) "✗ Connection failed — tap Retry"
+                    else if (useServer) "Server: not connected yet"
+                    else "Offline mode",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (connectionFailed && useServer) {
+                    Spacer(Modifier.width(8.dp))
+                    TextButton(onClick = {
+                        isConnecting = true; connectionFailed = false
+                        app.api.baseURL = serverURL
+                        app.registerWithServer { ok ->
+                            isConnecting = false
+                            connectionFailed = !ok
+                        }
+                    }) { Text("Retry", fontSize = 11.sp) }
+                }
+            }
         }
         Spacer(Modifier.height(16.dp))
 
@@ -113,17 +136,21 @@ fun OnboardingScreen(app: AppState, onDone: () -> Unit) {
             } else Spacer(Modifier.width(1.dp))
 
             Button(onClick = {
-                if (step < 3) step++
-                else {
-                    // Get Started
+                if (isConnecting) return@Button
+                if (step < 3) { step++; return@Button }
+                // Get Started
+                if (useServer && !app.isConnected) {
+                    isConnecting = true; connectionFailed = false
                     app.api.baseURL = serverURL
-                    if (useServer && !app.isConnected) {
-                        app.registerWithServer { ok -> if (ok) onDone() }
-                    } else onDone()
-                }
-            }, enabled = canAdvance()) {
-                Text(if (step < 3) "Continue" else "Get Started")
-                if (step < 3) Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(18.dp))
+                    app.registerWithServer { ok ->
+                        isConnecting = false
+                        if (ok) onDone() else connectionFailed = true
+                    }
+                } else onDone()
+            }, enabled = !isConnecting && canAdvance()) {
+                if (isConnecting) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                else Text(if (step < 3) "Continue" else "Get Started")
+                if (step < 3 && !isConnecting) Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(18.dp))
             }
         }
         Spacer(Modifier.height(8.dp))
