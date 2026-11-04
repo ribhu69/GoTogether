@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -57,6 +59,8 @@ import org.osmdroid.views.overlay.Polyline
 import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
 
 private val Green = Color(0xFF2E7D32)
 private const val ORIGIN_SPAN_KM = 0.5
@@ -141,7 +145,6 @@ fun MapHomeScreen(app: AppState, modifier: Modifier, onRequested: () -> Unit) {
     LaunchedEffect(app.search.verifiedOnly, app.search.sameGenderOnly) { app.refreshIntents() }
     LaunchedEffect(app.myDest, app.myComfortKm, app.iAmOpen) { app.syncIntent() }
     LaunchedEffect(Unit) {
-        app.autoConnect()
         while (true) { app.pollCycle(); kotlinx.coroutines.delay(2000) }
     }
 
@@ -152,7 +155,11 @@ fun MapHomeScreen(app: AppState, modifier: Modifier, onRequested: () -> Unit) {
         if (!showCoords) {
             TextButton(onClick = { showCoords = true; latText = app.myOrigin.lat.toString(); lonText = app.myOrigin.lon.toString() },
                 modifier = Modifier.padding(8.dp).align(Alignment.TopStart)) {
-                Text("📍 ${app.myOrigin.name}", maxLines = 1)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("📍 ${app.myOrigin.name}", maxLines = 1)
+                    Box(Modifier.size(7.dp).clip(RoundedCornerShape(50))
+                        .background(if (app.isConnected) Green else Color(0xFFFFA726)))
+                }
             }
         } else {
         Card(Modifier.fillMaxWidth().padding(8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f))) {

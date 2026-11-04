@@ -96,7 +96,7 @@ build_android() {
 
     # Install and launch
     $ADB install -r "$APK_PATH" 2>&1 || echo "  (install skipped — may already be installed)"
-    $ADB shell am start -n com.gotogether.demo/.MainActivity 2>&1 || true
+    $ADB shell am start -n com.gotogether.app/.MainActivity 2>&1 || true
     echo "  App launched"
 }
 

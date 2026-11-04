@@ -10,6 +10,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -35,10 +36,15 @@ class MainActivity : ComponentActivity() {
 
 @androidx.compose.runtime.Composable
 fun Root(app: AppState) {
-    if (!app.onboarded) {
-        OnboardingScreen(app)
+    var onboardingDone by remember { mutableStateOf(false) }
+
+    if (!app.onboarded && !onboardingDone) {
+        OnboardingScreen(app, onDone = { onboardingDone = true })
         return
     }
+
+    // Auto-connect after onboarding
+    LaunchedEffect(Unit) { app.autoConnect() }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var chatPeer by remember { mutableStateOf<String?>(null) }
     var groupId by remember { mutableStateOf<String?>(null) }
