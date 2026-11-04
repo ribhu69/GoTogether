@@ -31,6 +31,9 @@ fun OnboardingScreen(app: AppState, onDone: () -> Unit) {
     var isConnecting by remember { mutableStateOf(false) }
     var connectionFailed by remember { mutableStateOf(false) }
 
+    // Ensure server URL has protocol
+    fun ensureHttp(url: String): String = if (url.startsWith("http")) url else "http://$url"
+
     fun canAdvance(): Boolean = when (step) {
         0 -> app.phoneVerified
         1 -> app.idVerified
@@ -79,7 +82,7 @@ fun OnboardingScreen(app: AppState, onDone: () -> Unit) {
                     Spacer(Modifier.width(8.dp))
                     TextButton(onClick = {
                         isConnecting = true; connectionFailed = false
-                        app.api.baseURL = serverURL
+                        app.api.baseURL = ensureHttp(serverURL)
                         app.registerWithServer { ok ->
                             isConnecting = false
                             connectionFailed = !ok
@@ -99,7 +102,7 @@ fun OnboardingScreen(app: AppState, onDone: () -> Unit) {
                     onVerify = {
                         if (otp.isNotBlank()) {
                             if (useServer) {
-                                app.api.baseURL = serverURL
+                                app.api.baseURL = ensureHttp(serverURL)
                                 if (!app.isConnected) {
                                     app.registerWithServer { ok ->
                                         if (ok) app.verifyPhoneOnServer(otp) {}
@@ -141,7 +144,7 @@ fun OnboardingScreen(app: AppState, onDone: () -> Unit) {
                 // Get Started
                 if (useServer && !app.isConnected) {
                     isConnecting = true; connectionFailed = false
-                    app.api.baseURL = serverURL
+                    app.api.baseURL = ensureHttp(serverURL)
                     app.registerWithServer { ok ->
                         isConnecting = false
                         if (ok) onDone() else connectionFailed = true

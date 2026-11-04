@@ -66,24 +66,31 @@ class ApiClient(var baseURL: String = "http://10.0.2.2:8080") {
     // Helpers
     private suspend fun post(path: String, body: JSONObject): JSONObject = withContext(Dispatchers.IO) {
         val url = URL("$baseURL$path")
-        val conn = url.openConnection() as HttpURLConnection
-        conn.requestMethod = "POST"
-        conn.setRequestProperty("Content-Type", "application/json")
-        conn.doOutput = true
+        val conn = (url.openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            setRequestProperty("Content-Type", "application/json")
+            connectTimeout = 5000; readTimeout = 8000
+            doOutput = true
+        }
         OutputStreamWriter(conn.outputStream).use { it.write(body.toString()) }
         readResponse(conn)
     }
 
     private suspend fun get(path: String): JSONObject = withContext(Dispatchers.IO) {
-        val conn = (URL("$baseURL$path").openConnection() as HttpURLConnection).apply { requestMethod = "GET" }
+        val conn = (URL("$baseURL$path").openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 5000; readTimeout = 8000
+        }
         readResponse(conn)
     }
 
     private fun readResponse(conn: HttpURLConnection): JSONObject {
-        val text = if (conn.responseCode in 200..299) {
-            BufferedReader(InputStreamReader(conn.inputStream)).readText()
+        val code = conn.responseCode
+        val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+        val text = if (stream != null) {
+            BufferedReader(InputStreamReader(stream)).readText()
         } else {
-            BufferedReader(InputStreamReader(conn.errorStream)).readText()
+            "{\"error\":\"HTTP $code\"}"
         }
         return JSONObject(text)
     }
