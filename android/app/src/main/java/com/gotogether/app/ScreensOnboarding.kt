@@ -26,7 +26,7 @@ fun OnboardingScreen(app: AppState, onDone: () -> Unit) {
     var otp by remember { mutableStateOf("") }
     var otpSent by remember { mutableStateOf(false) }
     var serverURL by remember { mutableStateOf(app.api.baseURL) }
-    var useServer by remember { mutableStateOf(true) }
+    var useServer by remember { mutableStateOf(false) }
 
     fun canAdvance(): Boolean = when (step) {
         0 -> app.phoneVerified
@@ -74,12 +74,20 @@ fun OnboardingScreen(app: AppState, onDone: () -> Unit) {
                     onOtpChange = { otp = it },
                     onSendOtp = { otpSent = true },
                     onVerify = {
-                        if (otp.isBlank()) return@PhoneStep
-                        if (useServer) {
-                            app.api.baseURL = serverURL
-                            if (!app.isConnected) app.registerWithServer { ok -> if (ok) app.verifyPhoneOnServer(otp) {} }
-                            else app.verifyPhoneOnServer(otp) {}
-                        } else app.phoneVerified = otp == "123456"
+                        if (otp.isNotBlank()) {
+                            if (useServer) {
+                                app.api.baseURL = serverURL
+                                if (!app.isConnected) {
+                                    app.registerWithServer { ok ->
+                                        if (ok) app.verifyPhoneOnServer(otp) {}
+                                    }
+                                } else {
+                                    app.verifyPhoneOnServer(otp) {}
+                                }
+                            } else {
+                                app.phoneVerified = otp == "123456"
+                            }
+                        }
                     })
                 1 -> IDStep(app, onVerify = {
                     if (useServer) {
